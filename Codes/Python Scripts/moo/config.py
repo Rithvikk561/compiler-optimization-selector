@@ -264,3 +264,106 @@ _REPORT_DIR_DEFAULT = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "reports"
 )
 REPORT_DIR: str = os.environ.get("TOACD_REPORT_DIR", _REPORT_DIR_DEFAULT)
+
+
+# ---------------------------------------------------------------------------
+# Measurement constants — timing
+# ---------------------------------------------------------------------------
+
+# Number of warm-up executions before recording timing samples.
+# Warm-up lets the OS loader, filesystem cache, and CPU branch predictor
+# settle.  Configurable via TOACD_WARMUP_RUNS.
+WARMUP_RUNS: int = int(os.environ.get("TOACD_WARMUP_RUNS", "3"))
+
+# Number of timed measurement runs per candidate.
+# Configurable via TOACD_MEASURE_RUNS.
+MEASURE_RUNS: int = int(os.environ.get("TOACD_MEASURE_RUNS", "10"))
+
+# Hard per-run timeout in seconds (wall-clock).
+# Configurable via TOACD_RUN_TIMEOUT_S.
+RUN_TIMEOUT_S: int = int(os.environ.get("TOACD_RUN_TIMEOUT_S", "30"))
+
+
+# ---------------------------------------------------------------------------
+# Measurement constants — code size
+# ---------------------------------------------------------------------------
+
+# Tool used for section-level code-size measurement.
+# "llvm-size" is preferred; falls back to raw file size if unavailable.
+# Configurable via TOACD_SIZE_TOOL (path to llvm-size executable).
+LLVM_SIZE_PATH: str | None = _find_tool(
+    "llvm-size.exe",
+    env_var="TOACD_SIZE_TOOL",
+    common_paths=[
+        r"C:\Program Files\LLVM\bin\llvm-size.exe",
+        r"C:\Program Files (x86)\LLVM\bin\llvm-size.exe",
+        r"/usr/bin/llvm-size",
+        r"/usr/local/bin/llvm-size",
+    ],
+)
+
+
+# ---------------------------------------------------------------------------
+# Measurement constants — energy (estimated)
+#
+# True hardware energy measurement (e.g. Intel RAPL, NVML) requires either
+# kernel-level access or vendor SDK.  On this Windows workstation neither is
+# available without administrative privilege or a specialised tool.
+#
+# POLICY: we do NOT pretend to measure hardware energy.
+# Instead we provide a transparent CPU-time × TDP estimate, clearly marked
+# as "estimated".  The architecture allows a real hardware backend to be
+# plugged in later.
+#
+# The estimate formula is:
+#   energy_joules ≈ elapsed_seconds × tdp_watts × utilisation_fraction
+#
+# All three factors are explicit and configurable.
+# ---------------------------------------------------------------------------
+
+# Thermal Design Power of the CPU, in Watts.
+# This is the manufacturer's rated sustained power, NOT a live measurement.
+# Override with TOACD_CPU_TDP_WATTS to match the actual hardware.
+CPU_TDP_WATTS: float = float(os.environ.get("TOACD_CPU_TDP_WATTS", "45.0"))
+
+# Assumed CPU utilisation fraction during a single-threaded benchmark.
+# 1.0 = full core; 0.5 = half core.
+# Override with TOACD_CPU_UTILISATION.
+CPU_UTILISATION: float = float(os.environ.get("TOACD_CPU_UTILISATION", "1.0"))
+
+# Whether energy measurement is estimated (True) or from real hardware (False).
+# This MUST be True in this environment; a future hardware backend would set it
+# to False.  Do NOT change this to False without wiring up actual hardware
+# counters.
+ENERGY_IS_ESTIMATED: bool = True
+
+# Human-readable description of the energy source for audit trails.
+ENERGY_SOURCE: str = (
+    os.environ.get("TOACD_ENERGY_SOURCE", "")
+    or f"estimated: elapsed_time * TDP({CPU_TDP_WATTS}W) * utilisation({CPU_UTILISATION})"
+)
+
+
+# ---------------------------------------------------------------------------
+# Measurement constants — carbon
+#
+# Carbon intensity of the electricity grid, in gCO2eq/kWh.
+# Source: IEA 2023 world average ≈ 436 gCO2eq/kWh.
+# Override with TOACD_GRID_INTENSITY_G_PER_KWH to use a country/region-
+# specific value.  The unit and origin MUST be documented in results.
+#
+# carbon_grams = energy_joules / 3_600_000 (Wh) * 1000 (Wh→kWh) * intensity
+#              = energy_joules * intensity / 3_600_000
+# ---------------------------------------------------------------------------
+
+GRID_INTENSITY_G_PER_KWH: float = float(
+    os.environ.get("TOACD_GRID_INTENSITY_G_PER_KWH", "436.0")
+)
+GRID_INTENSITY_SOURCE: str = (
+    os.environ.get("TOACD_GRID_INTENSITY_SOURCE", "")
+    or "IEA 2023 world average (436 gCO2eq/kWh); override via TOACD_GRID_INTENSITY_G_PER_KWH"
+)
+
+# Carbon is estimated whenever energy is estimated.
+CARBON_IS_ESTIMATED: bool = ENERGY_IS_ESTIMATED
+
