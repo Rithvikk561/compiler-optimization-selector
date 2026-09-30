@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Generated LLVM/compiler files
+*.ll
+*.exe
+*.o
+*.obj
+*.bc
+
+# Temporary files
+temp_*
+tmp_*
+*.tmp
+
+# Python generated data
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Antigravity / IDE temporary files
+*.swp
+*.swo
+
+Codes/Python Scripts/gui_app_backup.py
+Codes/Python Scripts/gui_app_old.py

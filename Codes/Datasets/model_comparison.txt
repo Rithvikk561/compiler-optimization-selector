@@ -1,0 +1,5 @@
+Model                      CV Accuracy    Std Dev
+--------------------------------------------------
+XGBoost (tuned)                  0.745      0.044
+Random Forest                    0.733      0.048
+Logistic Regression              0.721      0.031
