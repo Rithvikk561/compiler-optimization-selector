@@ -5,7 +5,10 @@ import sys
 import re
 from ml_optimizer import DQN, ACTIONS, CLANG_PATH, CompilerEnv
 
-MODEL_PATH = "ml_optimizer_model.pth"
+MODEL_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "ml_optimizer_model.pth"
+)
 
 OPT_PATH = r"C:\Users\rithv\Downloads\clang+llvm-23.1.0-x86_64-pc-windows-msvc\clang+llvm-23.1.0-x86_64-pc-windows-msvc\bin\opt.exe"
 
