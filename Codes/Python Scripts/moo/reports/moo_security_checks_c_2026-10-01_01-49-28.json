@@ -1,0 +1,1366 @@
+{
+  "source_file": "security_checks.c",
+  "source_path": "C:\\Users\\rithv\\Desktop\\New folder\\TOACD\\compiler-optimization-selector-main\\compiler-optimization-selector-main\\Codes\\test_cases\\security_checks.c",
+  "timestamp": "2026-10-01T01:49:28",
+  "toolchain_ok": true,
+  "toolchain_notes": [],
+  "baseline": {
+    "strategy_name": "baseline (-O0)",
+    "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\reference\\ref.exe",
+    "build_ok": true,
+    "build_error": null,
+    "reference_exit_code": 1,
+    "reference_stdout": "",
+    "measurement": {
+      "strategy": "baseline (-O0)",
+      "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\reference\\ref.exe",
+      "warmup_runs": 3,
+      "measure_runs": 10,
+      "raw_samples_ns": [
+        14681800,
+        15446900,
+        17378700,
+        16290500,
+        22292300,
+        21713900,
+        17116500,
+        22249400,
+        15392100,
+        16456300
+      ],
+      "timing": {
+        "n_samples": 10,
+        "median_ns": 16786400.0,
+        "min_ns": 14681800.0,
+        "max_ns": 22292300.0,
+        "mean_ns": 17901840.0,
+        "stdev_ns": 2999626.6090594972,
+        "median_s": 0.0167864,
+        "mean_s": 0.01790184
+      },
+      "last_return_code": 1,
+      "last_stdout": "",
+      "last_stderr": "",
+      "all_return_codes": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "code_size": {
+        "file_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\reference\\ref.exe",
+        "file_size_bytes": 115200,
+        "text_size_bytes": 63025,
+        "data_size_bytes": 48924,
+        "bss_size_bytes": 0,
+        "size_source": "llvm-size .text section (PE format)",
+        "primary_metric": "text_size_bytes",
+        "primary_value": 63025,
+        "llvm_size_raw": "text\t   data\t    bss\t    dec\t    hex\tfilename\n  63025\t  48924\t      0\t 111949\t  1b54d\tC:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\reference\\ref.exe"
+      },
+      "energy": {
+        "energy_joules": 0.755388,
+        "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+        "energy_is_estimated": true
+      },
+      "carbon": {
+        "carbon_grams": 9.148587999999999e-05,
+        "grid_intensity_g_per_kwh": 436.0,
+        "grid_intensity_source": "IEA 2023 world average (436 gCO2eq/kWh); override via TOACD_GRID_INTENSITY_G_PER_KWH",
+        "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+        "carbon_is_estimated": true
+      },
+      "measurement_error": null
+    }
+  },
+  "candidates": [
+    {
+      "strategy_name": "-O0",
+      "strategy_index": 0,
+      "strategy_kind": "clang_flag",
+      "build_ok": true,
+      "build_error": null,
+      "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s00_clang_flag\\optimized.exe",
+      "correctness_checked": true,
+      "correct": true,
+      "correctness_details": "CORRECT (reference exit code 1 is non-zero but intentional)",
+      "reference_exit_code": 1,
+      "candidate_exit_code": 1,
+      "measurement": {
+        "strategy": "-O0",
+        "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s00_clang_flag\\optimized.exe",
+        "warmup_runs": 3,
+        "measure_runs": 10,
+        "raw_samples_ns": [
+          14345800,
+          19689100,
+          15214600,
+          17041000,
+          13247300,
+          18675700,
+          15820900,
+          12844400,
+          14780100,
+          13840700
+        ],
+        "timing": {
+          "n_samples": 10,
+          "median_ns": 14997350.0,
+          "min_ns": 12844400.0,
+          "max_ns": 19689100.0,
+          "mean_ns": 15549960.0,
+          "stdev_ns": 2282745.886573157,
+          "median_s": 0.01499735,
+          "mean_s": 0.01554996
+        },
+        "last_return_code": 1,
+        "last_stdout": "",
+        "last_stderr": "",
+        "all_return_codes": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "code_size": {
+          "file_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s00_clang_flag\\optimized.exe",
+          "file_size_bytes": 115200,
+          "text_size_bytes": 63025,
+          "data_size_bytes": 48924,
+          "bss_size_bytes": 0,
+          "size_source": "llvm-size .text section (PE format)",
+          "primary_metric": "text_size_bytes",
+          "primary_value": 63025,
+          "llvm_size_raw": "text\t   data\t    bss\t    dec\t    hex\tfilename\n  63025\t  48924\t      0\t 111949\t  1b54d\tC:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s00_clang_flag\\optimized.exe"
+        },
+        "energy": {
+          "energy_joules": 0.67488075,
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "energy_is_estimated": true
+        },
+        "carbon": {
+          "carbon_grams": 8.173555750000001e-05,
+          "grid_intensity_g_per_kwh": 436.0,
+          "grid_intensity_source": "IEA 2023 world average (436 gCO2eq/kWh); override via TOACD_GRID_INTENSITY_G_PER_KWH",
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "carbon_is_estimated": true
+        },
+        "measurement_error": null
+      },
+      "normalized": {
+        "strategy": "-O0",
+        "is_fully_valid": true,
+        "objectives": [
+          {
+            "objective": {
+              "name": "execution_time",
+              "lower_is_better": true,
+              "unit": "seconds",
+              "description": "Median wall-clock execution time of the compiled program"
+            },
+            "raw_value": 0.01499735,
+            "baseline_value": 0.0167864,
+            "normalized_value": 0.8934226516703998,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "energy",
+              "lower_is_better": true,
+              "unit": "joules",
+              "description": "Estimated CPU energy consumption (elapsed_time \u00d7 TDP \u00d7 utilisation); marked as estimated \u2014 not a hardware measurement"
+            },
+            "raw_value": 0.67488075,
+            "baseline_value": 0.755388,
+            "normalized_value": 0.8934226516703999,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "code_size",
+              "lower_is_better": true,
+              "unit": "bytes",
+              "description": "Primary code-size metric: PE .text section bytes via llvm-size when available, raw file size otherwise"
+            },
+            "raw_value": 63025.0,
+            "baseline_value": 63025.0,
+            "normalized_value": 1.0,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "carbon",
+              "lower_is_better": true,
+              "unit": "grams CO2eq",
+              "description": "Estimated carbon footprint derived from estimated energy and grid intensity (gCO2eq/kWh); marked as estimated"
+            },
+            "raw_value": 8.173555750000001e-05,
+            "baseline_value": 9.148587999999999e-05,
+            "normalized_value": 0.8934226516704,
+            "note": ""
+          }
+        ]
+      },
+      "pareto_status": "DOMINATED",
+      "dominated_by": [
+        "-O1",
+        "-O2",
+        "mem2reg,instcombine,simplifycfg,dce,gvn,loop-unroll"
+      ]
+    },
+    {
+      "strategy_name": "-O1",
+      "strategy_index": 1,
+      "strategy_kind": "clang_flag",
+      "build_ok": true,
+      "build_error": null,
+      "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s01_clang_flag\\optimized.exe",
+      "correctness_checked": true,
+      "correct": true,
+      "correctness_details": "CORRECT (reference exit code 1 is non-zero but intentional)",
+      "reference_exit_code": 1,
+      "candidate_exit_code": 1,
+      "measurement": {
+        "strategy": "-O1",
+        "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s01_clang_flag\\optimized.exe",
+        "warmup_runs": 3,
+        "measure_runs": 10,
+        "raw_samples_ns": [
+          13970200,
+          14057800,
+          15946900,
+          12815400,
+          13211700,
+          12912100,
+          14641700,
+          14532700,
+          14539000,
+          12219700
+        ],
+        "timing": {
+          "n_samples": 10,
+          "median_ns": 14014000.0,
+          "min_ns": 12219700.0,
+          "max_ns": 15946900.0,
+          "mean_ns": 13884720.0,
+          "stdev_ns": 1106822.8522316578,
+          "median_s": 0.014014,
+          "mean_s": 0.01388472
+        },
+        "last_return_code": 1,
+        "last_stdout": "",
+        "last_stderr": "",
+        "all_return_codes": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "code_size": {
+          "file_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s01_clang_flag\\optimized.exe",
+          "file_size_bytes": 114688,
+          "text_size_bytes": 62865,
+          "data_size_bytes": 48832,
+          "bss_size_bytes": 0,
+          "size_source": "llvm-size .text section (PE format)",
+          "primary_metric": "text_size_bytes",
+          "primary_value": 62865,
+          "llvm_size_raw": "text\t   data\t    bss\t    dec\t    hex\tfilename\n  62865\t  48832\t      0\t 111697\t  1b451\tC:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s01_clang_flag\\optimized.exe"
+        },
+        "energy": {
+          "energy_joules": 0.63063,
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "energy_is_estimated": true
+        },
+        "carbon": {
+          "carbon_grams": 7.63763e-05,
+          "grid_intensity_g_per_kwh": 436.0,
+          "grid_intensity_source": "IEA 2023 world average (436 gCO2eq/kWh); override via TOACD_GRID_INTENSITY_G_PER_KWH",
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "carbon_is_estimated": true
+        },
+        "measurement_error": null
+      },
+      "normalized": {
+        "strategy": "-O1",
+        "is_fully_valid": true,
+        "objectives": [
+          {
+            "objective": {
+              "name": "execution_time",
+              "lower_is_better": true,
+              "unit": "seconds",
+              "description": "Median wall-clock execution time of the compiled program"
+            },
+            "raw_value": 0.014014,
+            "baseline_value": 0.0167864,
+            "normalized_value": 0.8348424915407712,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "energy",
+              "lower_is_better": true,
+              "unit": "joules",
+              "description": "Estimated CPU energy consumption (elapsed_time \u00d7 TDP \u00d7 utilisation); marked as estimated \u2014 not a hardware measurement"
+            },
+            "raw_value": 0.63063,
+            "baseline_value": 0.755388,
+            "normalized_value": 0.8348424915407712,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "code_size",
+              "lower_is_better": true,
+              "unit": "bytes",
+              "description": "Primary code-size metric: PE .text section bytes via llvm-size when available, raw file size otherwise"
+            },
+            "raw_value": 62865.0,
+            "baseline_value": 63025.0,
+            "normalized_value": 0.9974613248710829,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "carbon",
+              "lower_is_better": true,
+              "unit": "grams CO2eq",
+              "description": "Estimated carbon footprint derived from estimated energy and grid intensity (gCO2eq/kWh); marked as estimated"
+            },
+            "raw_value": 7.63763e-05,
+            "baseline_value": 9.148587999999999e-05,
+            "normalized_value": 0.8348424915407712,
+            "note": ""
+          }
+        ]
+      },
+      "pareto_status": "FRONTIER",
+      "dominated_by": []
+    },
+    {
+      "strategy_name": "-O2",
+      "strategy_index": 2,
+      "strategy_kind": "clang_flag",
+      "build_ok": true,
+      "build_error": null,
+      "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s02_clang_flag\\optimized.exe",
+      "correctness_checked": true,
+      "correct": true,
+      "correctness_details": "CORRECT (reference exit code 1 is non-zero but intentional)",
+      "reference_exit_code": 1,
+      "candidate_exit_code": 1,
+      "measurement": {
+        "strategy": "-O2",
+        "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s02_clang_flag\\optimized.exe",
+        "warmup_runs": 3,
+        "measure_runs": 10,
+        "raw_samples_ns": [
+          13474700,
+          14664500,
+          11896500,
+          12103200,
+          16187600,
+          15052800,
+          14709400,
+          15705400,
+          14882100,
+          14843400
+        ],
+        "timing": {
+          "n_samples": 10,
+          "median_ns": 14776400.0,
+          "min_ns": 11896500.0,
+          "max_ns": 16187600.0,
+          "mean_ns": 14351960.0,
+          "stdev_ns": 1425807.6660070405,
+          "median_s": 0.0147764,
+          "mean_s": 0.01435196
+        },
+        "last_return_code": 1,
+        "last_stdout": "",
+        "last_stderr": "",
+        "all_return_codes": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "code_size": {
+          "file_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s02_clang_flag\\optimized.exe",
+          "file_size_bytes": 114688,
+          "text_size_bytes": 62929,
+          "data_size_bytes": 48832,
+          "bss_size_bytes": 0,
+          "size_source": "llvm-size .text section (PE format)",
+          "primary_metric": "text_size_bytes",
+          "primary_value": 62929,
+          "llvm_size_raw": "text\t   data\t    bss\t    dec\t    hex\tfilename\n  62929\t  48832\t      0\t 111761\t  1b491\tC:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s02_clang_flag\\optimized.exe"
+        },
+        "energy": {
+          "energy_joules": 0.664938,
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "energy_is_estimated": true
+        },
+        "carbon": {
+          "carbon_grams": 8.053138e-05,
+          "grid_intensity_g_per_kwh": 436.0,
+          "grid_intensity_source": "IEA 2023 world average (436 gCO2eq/kWh); override via TOACD_GRID_INTENSITY_G_PER_KWH",
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "carbon_is_estimated": true
+        },
+        "measurement_error": null
+      },
+      "normalized": {
+        "strategy": "-O2",
+        "is_fully_valid": true,
+        "objectives": [
+          {
+            "objective": {
+              "name": "execution_time",
+              "lower_is_better": true,
+              "unit": "seconds",
+              "description": "Median wall-clock execution time of the compiled program"
+            },
+            "raw_value": 0.0147764,
+            "baseline_value": 0.0167864,
+            "normalized_value": 0.880260210646714,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "energy",
+              "lower_is_better": true,
+              "unit": "joules",
+              "description": "Estimated CPU energy consumption (elapsed_time \u00d7 TDP \u00d7 utilisation); marked as estimated \u2014 not a hardware measurement"
+            },
+            "raw_value": 0.664938,
+            "baseline_value": 0.755388,
+            "normalized_value": 0.8802602106467141,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "code_size",
+              "lower_is_better": true,
+              "unit": "bytes",
+              "description": "Primary code-size metric: PE .text section bytes via llvm-size when available, raw file size otherwise"
+            },
+            "raw_value": 62929.0,
+            "baseline_value": 63025.0,
+            "normalized_value": 0.9984767949226497,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "carbon",
+              "lower_is_better": true,
+              "unit": "grams CO2eq",
+              "description": "Estimated carbon footprint derived from estimated energy and grid intensity (gCO2eq/kWh); marked as estimated"
+            },
+            "raw_value": 8.053138e-05,
+            "baseline_value": 9.148587999999999e-05,
+            "normalized_value": 0.8802602106467141,
+            "note": ""
+          }
+        ]
+      },
+      "pareto_status": "DOMINATED",
+      "dominated_by": [
+        "-O1"
+      ]
+    },
+    {
+      "strategy_name": "-O3",
+      "strategy_index": 3,
+      "strategy_kind": "clang_flag",
+      "build_ok": true,
+      "build_error": null,
+      "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s03_clang_flag\\optimized.exe",
+      "correctness_checked": true,
+      "correct": true,
+      "correctness_details": "CORRECT (reference exit code 1 is non-zero but intentional)",
+      "reference_exit_code": 1,
+      "candidate_exit_code": 1,
+      "measurement": {
+        "strategy": "-O3",
+        "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s03_clang_flag\\optimized.exe",
+        "warmup_runs": 3,
+        "measure_runs": 10,
+        "raw_samples_ns": [
+          15395500,
+          21392700,
+          18512100,
+          17626800,
+          17226300,
+          16061600,
+          16288600,
+          14806400,
+          12828300,
+          13494700
+        ],
+        "timing": {
+          "n_samples": 10,
+          "median_ns": 16175100.0,
+          "min_ns": 12828300.0,
+          "max_ns": 21392700.0,
+          "mean_ns": 16363300.0,
+          "stdev_ns": 2504122.7215223387,
+          "median_s": 0.0161751,
+          "mean_s": 0.0163633
+        },
+        "last_return_code": 1,
+        "last_stdout": "",
+        "last_stderr": "",
+        "all_return_codes": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "code_size": {
+          "file_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s03_clang_flag\\optimized.exe",
+          "file_size_bytes": 114688,
+          "text_size_bytes": 62929,
+          "data_size_bytes": 48832,
+          "bss_size_bytes": 0,
+          "size_source": "llvm-size .text section (PE format)",
+          "primary_metric": "text_size_bytes",
+          "primary_value": 62929,
+          "llvm_size_raw": "text\t   data\t    bss\t    dec\t    hex\tfilename\n  62929\t  48832\t      0\t 111761\t  1b491\tC:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s03_clang_flag\\optimized.exe"
+        },
+        "energy": {
+          "energy_joules": 0.7278795,
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "energy_is_estimated": true
+        },
+        "carbon": {
+          "carbon_grams": 8.8154295e-05,
+          "grid_intensity_g_per_kwh": 436.0,
+          "grid_intensity_source": "IEA 2023 world average (436 gCO2eq/kWh); override via TOACD_GRID_INTENSITY_G_PER_KWH",
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "carbon_is_estimated": true
+        },
+        "measurement_error": null
+      },
+      "normalized": {
+        "strategy": "-O3",
+        "is_fully_valid": true,
+        "objectives": [
+          {
+            "objective": {
+              "name": "execution_time",
+              "lower_is_better": true,
+              "unit": "seconds",
+              "description": "Median wall-clock execution time of the compiled program"
+            },
+            "raw_value": 0.0161751,
+            "baseline_value": 0.0167864,
+            "normalized_value": 0.96358361530763,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "energy",
+              "lower_is_better": true,
+              "unit": "joules",
+              "description": "Estimated CPU energy consumption (elapsed_time \u00d7 TDP \u00d7 utilisation); marked as estimated \u2014 not a hardware measurement"
+            },
+            "raw_value": 0.7278795,
+            "baseline_value": 0.755388,
+            "normalized_value": 0.96358361530763,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "code_size",
+              "lower_is_better": true,
+              "unit": "bytes",
+              "description": "Primary code-size metric: PE .text section bytes via llvm-size when available, raw file size otherwise"
+            },
+            "raw_value": 62929.0,
+            "baseline_value": 63025.0,
+            "normalized_value": 0.9984767949226497,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "carbon",
+              "lower_is_better": true,
+              "unit": "grams CO2eq",
+              "description": "Estimated carbon footprint derived from estimated energy and grid intensity (gCO2eq/kWh); marked as estimated"
+            },
+            "raw_value": 8.8154295e-05,
+            "baseline_value": 9.148587999999999e-05,
+            "normalized_value": 0.96358361530763,
+            "note": ""
+          }
+        ]
+      },
+      "pareto_status": "DOMINATED",
+      "dominated_by": [
+        "-O1",
+        "-O2"
+      ]
+    },
+    {
+      "strategy_name": "mem2reg,instcombine",
+      "strategy_index": 4,
+      "strategy_kind": "opt_passes",
+      "build_ok": true,
+      "build_error": null,
+      "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s04_opt_passes\\optimized.exe",
+      "correctness_checked": true,
+      "correct": true,
+      "correctness_details": "CORRECT (reference exit code 1 is non-zero but intentional)",
+      "reference_exit_code": 1,
+      "candidate_exit_code": 1,
+      "measurement": {
+        "strategy": "mem2reg,instcombine",
+        "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s04_opt_passes\\optimized.exe",
+        "warmup_runs": 3,
+        "measure_runs": 10,
+        "raw_samples_ns": [
+          21163700,
+          20176900,
+          17635700,
+          15031200,
+          17189400,
+          15396500,
+          18958000,
+          20840100,
+          16618200,
+          20068800
+        ],
+        "timing": {
+          "n_samples": 10,
+          "median_ns": 18296850.0,
+          "min_ns": 15031200.0,
+          "max_ns": 21163700.0,
+          "mean_ns": 18307850.0,
+          "stdev_ns": 2244875.2577321036,
+          "median_s": 0.01829685,
+          "mean_s": 0.01830785
+        },
+        "last_return_code": 1,
+        "last_stdout": "",
+        "last_stderr": "",
+        "all_return_codes": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "code_size": {
+          "file_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s04_opt_passes\\optimized.exe",
+          "file_size_bytes": 115200,
+          "text_size_bytes": 62977,
+          "data_size_bytes": 48924,
+          "bss_size_bytes": 0,
+          "size_source": "llvm-size .text section (PE format)",
+          "primary_metric": "text_size_bytes",
+          "primary_value": 62977,
+          "llvm_size_raw": "text\t   data\t    bss\t    dec\t    hex\tfilename\n  62977\t  48924\t      0\t 111901\t  1b51d\tC:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s04_opt_passes\\optimized.exe"
+        },
+        "energy": {
+          "energy_joules": 0.82335825,
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "energy_is_estimated": true
+        },
+        "carbon": {
+          "carbon_grams": 9.97178325e-05,
+          "grid_intensity_g_per_kwh": 436.0,
+          "grid_intensity_source": "IEA 2023 world average (436 gCO2eq/kWh); override via TOACD_GRID_INTENSITY_G_PER_KWH",
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "carbon_is_estimated": true
+        },
+        "measurement_error": null
+      },
+      "normalized": {
+        "strategy": "mem2reg,instcombine",
+        "is_fully_valid": true,
+        "objectives": [
+          {
+            "objective": {
+              "name": "execution_time",
+              "lower_is_better": true,
+              "unit": "seconds",
+              "description": "Median wall-clock execution time of the compiled program"
+            },
+            "raw_value": 0.01829685,
+            "baseline_value": 0.0167864,
+            "normalized_value": 1.0899805795167516,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "energy",
+              "lower_is_better": true,
+              "unit": "joules",
+              "description": "Estimated CPU energy consumption (elapsed_time \u00d7 TDP \u00d7 utilisation); marked as estimated \u2014 not a hardware measurement"
+            },
+            "raw_value": 0.82335825,
+            "baseline_value": 0.755388,
+            "normalized_value": 1.0899805795167516,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "code_size",
+              "lower_is_better": true,
+              "unit": "bytes",
+              "description": "Primary code-size metric: PE .text section bytes via llvm-size when available, raw file size otherwise"
+            },
+            "raw_value": 62977.0,
+            "baseline_value": 63025.0,
+            "normalized_value": 0.9992383974613249,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "carbon",
+              "lower_is_better": true,
+              "unit": "grams CO2eq",
+              "description": "Estimated carbon footprint derived from estimated energy and grid intensity (gCO2eq/kWh); marked as estimated"
+            },
+            "raw_value": 9.97178325e-05,
+            "baseline_value": 9.148587999999999e-05,
+            "normalized_value": 1.0899805795167519,
+            "note": ""
+          }
+        ]
+      },
+      "pareto_status": "DOMINATED",
+      "dominated_by": [
+        "-O1",
+        "-O2",
+        "-O3"
+      ]
+    },
+    {
+      "strategy_name": "mem2reg,simplifycfg",
+      "strategy_index": 5,
+      "strategy_kind": "opt_passes",
+      "build_ok": true,
+      "build_error": null,
+      "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s05_opt_passes\\optimized.exe",
+      "correctness_checked": true,
+      "correct": true,
+      "correctness_details": "CORRECT (reference exit code 1 is non-zero but intentional)",
+      "reference_exit_code": 1,
+      "candidate_exit_code": 1,
+      "measurement": {
+        "strategy": "mem2reg,simplifycfg",
+        "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s05_opt_passes\\optimized.exe",
+        "warmup_runs": 3,
+        "measure_runs": 10,
+        "raw_samples_ns": [
+          18541900,
+          17866700,
+          16968000,
+          16979100,
+          13633900,
+          17844500,
+          18061700,
+          13534500,
+          13320800,
+          16465300
+        ],
+        "timing": {
+          "n_samples": 10,
+          "median_ns": 16973550.0,
+          "min_ns": 13320800.0,
+          "max_ns": 18541900.0,
+          "mean_ns": 16321640.0,
+          "stdev_ns": 2042098.2059310141,
+          "median_s": 0.01697355,
+          "mean_s": 0.01632164
+        },
+        "last_return_code": 1,
+        "last_stdout": "",
+        "last_stderr": "",
+        "all_return_codes": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "code_size": {
+          "file_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s05_opt_passes\\optimized.exe",
+          "file_size_bytes": 115200,
+          "text_size_bytes": 62993,
+          "data_size_bytes": 48924,
+          "bss_size_bytes": 0,
+          "size_source": "llvm-size .text section (PE format)",
+          "primary_metric": "text_size_bytes",
+          "primary_value": 62993,
+          "llvm_size_raw": "text\t   data\t    bss\t    dec\t    hex\tfilename\n  62993\t  48924\t      0\t 111917\t  1b52d\tC:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s05_opt_passes\\optimized.exe"
+        },
+        "energy": {
+          "energy_joules": 0.7638097500000001,
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "energy_is_estimated": true
+        },
+        "carbon": {
+          "carbon_grams": 9.250584750000001e-05,
+          "grid_intensity_g_per_kwh": 436.0,
+          "grid_intensity_source": "IEA 2023 world average (436 gCO2eq/kWh); override via TOACD_GRID_INTENSITY_G_PER_KWH",
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "carbon_is_estimated": true
+        },
+        "measurement_error": null
+      },
+      "normalized": {
+        "strategy": "mem2reg,simplifycfg",
+        "is_fully_valid": true,
+        "objectives": [
+          {
+            "objective": {
+              "name": "execution_time",
+              "lower_is_better": true,
+              "unit": "seconds",
+              "description": "Median wall-clock execution time of the compiled program"
+            },
+            "raw_value": 0.01697355,
+            "baseline_value": 0.0167864,
+            "normalized_value": 1.0111489062574466,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "energy",
+              "lower_is_better": true,
+              "unit": "joules",
+              "description": "Estimated CPU energy consumption (elapsed_time \u00d7 TDP \u00d7 utilisation); marked as estimated \u2014 not a hardware measurement"
+            },
+            "raw_value": 0.7638097500000001,
+            "baseline_value": 0.755388,
+            "normalized_value": 1.0111489062574466,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "code_size",
+              "lower_is_better": true,
+              "unit": "bytes",
+              "description": "Primary code-size metric: PE .text section bytes via llvm-size when available, raw file size otherwise"
+            },
+            "raw_value": 62993.0,
+            "baseline_value": 63025.0,
+            "normalized_value": 0.9994922649742166,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "carbon",
+              "lower_is_better": true,
+              "unit": "grams CO2eq",
+              "description": "Estimated carbon footprint derived from estimated energy and grid intensity (gCO2eq/kWh); marked as estimated"
+            },
+            "raw_value": 9.250584750000001e-05,
+            "baseline_value": 9.148587999999999e-05,
+            "normalized_value": 1.0111489062574468,
+            "note": ""
+          }
+        ]
+      },
+      "pareto_status": "DOMINATED",
+      "dominated_by": [
+        "-O1",
+        "-O2",
+        "-O3"
+      ]
+    },
+    {
+      "strategy_name": "mem2reg,instcombine,simplifycfg,dce",
+      "strategy_index": 6,
+      "strategy_kind": "opt_passes",
+      "build_ok": true,
+      "build_error": null,
+      "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s06_opt_passes\\optimized.exe",
+      "correctness_checked": true,
+      "correct": true,
+      "correctness_details": "CORRECT (reference exit code 1 is non-zero but intentional)",
+      "reference_exit_code": 1,
+      "candidate_exit_code": 1,
+      "measurement": {
+        "strategy": "mem2reg,instcombine,simplifycfg,dce",
+        "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s06_opt_passes\\optimized.exe",
+        "warmup_runs": 3,
+        "measure_runs": 10,
+        "raw_samples_ns": [
+          16700300,
+          23083500,
+          24268900,
+          15568600,
+          21542700,
+          24392400,
+          20546000,
+          23345000,
+          19918400,
+          20305600
+        ],
+        "timing": {
+          "n_samples": 10,
+          "median_ns": 21044350.0,
+          "min_ns": 15568600.0,
+          "max_ns": 24392400.0,
+          "mean_ns": 20967140.0,
+          "stdev_ns": 3021469.4674390913,
+          "median_s": 0.02104435,
+          "mean_s": 0.02096714
+        },
+        "last_return_code": 1,
+        "last_stdout": "",
+        "last_stderr": "",
+        "all_return_codes": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "code_size": {
+          "file_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s06_opt_passes\\optimized.exe",
+          "file_size_bytes": 114688,
+          "text_size_bytes": 62961,
+          "data_size_bytes": 48924,
+          "bss_size_bytes": 0,
+          "size_source": "llvm-size .text section (PE format)",
+          "primary_metric": "text_size_bytes",
+          "primary_value": 62961,
+          "llvm_size_raw": "text\t   data\t    bss\t    dec\t    hex\tfilename\n  62961\t  48924\t      0\t 111885\t  1b50d\tC:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s06_opt_passes\\optimized.exe"
+        },
+        "energy": {
+          "energy_joules": 0.94699575,
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "energy_is_estimated": true
+        },
+        "carbon": {
+          "carbon_grams": 0.00011469170750000001,
+          "grid_intensity_g_per_kwh": 436.0,
+          "grid_intensity_source": "IEA 2023 world average (436 gCO2eq/kWh); override via TOACD_GRID_INTENSITY_G_PER_KWH",
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "carbon_is_estimated": true
+        },
+        "measurement_error": null
+      },
+      "normalized": {
+        "strategy": "mem2reg,instcombine,simplifycfg,dce",
+        "is_fully_valid": true,
+        "objectives": [
+          {
+            "objective": {
+              "name": "execution_time",
+              "lower_is_better": true,
+              "unit": "seconds",
+              "description": "Median wall-clock execution time of the compiled program"
+            },
+            "raw_value": 0.02104435,
+            "baseline_value": 0.0167864,
+            "normalized_value": 1.253654744316828,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "energy",
+              "lower_is_better": true,
+              "unit": "joules",
+              "description": "Estimated CPU energy consumption (elapsed_time \u00d7 TDP \u00d7 utilisation); marked as estimated \u2014 not a hardware measurement"
+            },
+            "raw_value": 0.94699575,
+            "baseline_value": 0.755388,
+            "normalized_value": 1.253654744316828,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "code_size",
+              "lower_is_better": true,
+              "unit": "bytes",
+              "description": "Primary code-size metric: PE .text section bytes via llvm-size when available, raw file size otherwise"
+            },
+            "raw_value": 62961.0,
+            "baseline_value": 63025.0,
+            "normalized_value": 0.9989845299484331,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "carbon",
+              "lower_is_better": true,
+              "unit": "grams CO2eq",
+              "description": "Estimated carbon footprint derived from estimated energy and grid intensity (gCO2eq/kWh); marked as estimated"
+            },
+            "raw_value": 0.00011469170750000001,
+            "baseline_value": 9.148587999999999e-05,
+            "normalized_value": 1.2536547443168282,
+            "note": ""
+          }
+        ]
+      },
+      "pareto_status": "DOMINATED",
+      "dominated_by": [
+        "-O1",
+        "-O2",
+        "-O3"
+      ]
+    },
+    {
+      "strategy_name": "mem2reg,instcombine,simplifycfg,gvn,loop-unroll",
+      "strategy_index": 7,
+      "strategy_kind": "opt_passes",
+      "build_ok": true,
+      "build_error": null,
+      "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s07_opt_passes\\optimized.exe",
+      "correctness_checked": true,
+      "correct": true,
+      "correctness_details": "CORRECT (reference exit code 1 is non-zero but intentional)",
+      "reference_exit_code": 1,
+      "candidate_exit_code": 1,
+      "measurement": {
+        "strategy": "mem2reg,instcombine,simplifycfg,gvn,loop-unroll",
+        "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s07_opt_passes\\optimized.exe",
+        "warmup_runs": 3,
+        "measure_runs": 10,
+        "raw_samples_ns": [
+          24036800,
+          11114100,
+          11129300,
+          27565000,
+          19103000,
+          16827500,
+          23568400,
+          22028600,
+          18641100,
+          19955700
+        ],
+        "timing": {
+          "n_samples": 10,
+          "median_ns": 19529350.0,
+          "min_ns": 11114100.0,
+          "max_ns": 27565000.0,
+          "mean_ns": 19396950.0,
+          "stdev_ns": 5344815.317306213,
+          "median_s": 0.01952935,
+          "mean_s": 0.01939695
+        },
+        "last_return_code": 1,
+        "last_stdout": "",
+        "last_stderr": "",
+        "all_return_codes": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "code_size": {
+          "file_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s07_opt_passes\\optimized.exe",
+          "file_size_bytes": 115200,
+          "text_size_bytes": 63009,
+          "data_size_bytes": 48924,
+          "bss_size_bytes": 0,
+          "size_source": "llvm-size .text section (PE format)",
+          "primary_metric": "text_size_bytes",
+          "primary_value": 63009,
+          "llvm_size_raw": "text\t   data\t    bss\t    dec\t    hex\tfilename\n  63009\t  48924\t      0\t 111933\t  1b53d\tC:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s07_opt_passes\\optimized.exe"
+        },
+        "energy": {
+          "energy_joules": 0.87882075,
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "energy_is_estimated": true
+        },
+        "carbon": {
+          "carbon_grams": 0.00010643495750000001,
+          "grid_intensity_g_per_kwh": 436.0,
+          "grid_intensity_source": "IEA 2023 world average (436 gCO2eq/kWh); override via TOACD_GRID_INTENSITY_G_PER_KWH",
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "carbon_is_estimated": true
+        },
+        "measurement_error": null
+      },
+      "normalized": {
+        "strategy": "mem2reg,instcombine,simplifycfg,gvn,loop-unroll",
+        "is_fully_valid": true,
+        "objectives": [
+          {
+            "objective": {
+              "name": "execution_time",
+              "lower_is_better": true,
+              "unit": "seconds",
+              "description": "Median wall-clock execution time of the compiled program"
+            },
+            "raw_value": 0.01952935,
+            "baseline_value": 0.0167864,
+            "normalized_value": 1.1634031120430826,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "energy",
+              "lower_is_better": true,
+              "unit": "joules",
+              "description": "Estimated CPU energy consumption (elapsed_time \u00d7 TDP \u00d7 utilisation); marked as estimated \u2014 not a hardware measurement"
+            },
+            "raw_value": 0.87882075,
+            "baseline_value": 0.755388,
+            "normalized_value": 1.1634031120430826,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "code_size",
+              "lower_is_better": true,
+              "unit": "bytes",
+              "description": "Primary code-size metric: PE .text section bytes via llvm-size when available, raw file size otherwise"
+            },
+            "raw_value": 63009.0,
+            "baseline_value": 63025.0,
+            "normalized_value": 0.9997461324871083,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "carbon",
+              "lower_is_better": true,
+              "unit": "grams CO2eq",
+              "description": "Estimated carbon footprint derived from estimated energy and grid intensity (gCO2eq/kWh); marked as estimated"
+            },
+            "raw_value": 0.00010643495750000001,
+            "baseline_value": 9.148587999999999e-05,
+            "normalized_value": 1.1634031120430828,
+            "note": ""
+          }
+        ]
+      },
+      "pareto_status": "DOMINATED",
+      "dominated_by": [
+        "-O1",
+        "-O2",
+        "-O3",
+        "mem2reg,instcombine",
+        "mem2reg,simplifycfg",
+        "mem2reg,instcombine,simplifycfg,dce,gvn,loop-unroll"
+      ]
+    },
+    {
+      "strategy_name": "mem2reg,instcombine,simplifycfg,dce,gvn,loop-unroll",
+      "strategy_index": 8,
+      "strategy_kind": "opt_passes",
+      "build_ok": true,
+      "build_error": null,
+      "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s08_opt_passes\\optimized.exe",
+      "correctness_checked": true,
+      "correct": true,
+      "correctness_details": "CORRECT (reference exit code 1 is non-zero but intentional)",
+      "reference_exit_code": 1,
+      "candidate_exit_code": 1,
+      "measurement": {
+        "strategy": "mem2reg,instcombine,simplifycfg,dce,gvn,loop-unroll",
+        "exe_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s08_opt_passes\\optimized.exe",
+        "warmup_runs": 3,
+        "measure_runs": 10,
+        "raw_samples_ns": [
+          17922600,
+          19420800,
+          13315200,
+          14507700,
+          12404200,
+          14600600,
+          15685200,
+          18732300,
+          13924500,
+          14950700
+        ],
+        "timing": {
+          "n_samples": 10,
+          "median_ns": 14775650.0,
+          "min_ns": 12404200.0,
+          "max_ns": 19420800.0,
+          "mean_ns": 15546380.0,
+          "stdev_ns": 2371990.578864558,
+          "median_s": 0.01477565,
+          "mean_s": 0.01554638
+        },
+        "last_return_code": 1,
+        "last_stdout": "",
+        "last_stderr": "",
+        "all_return_codes": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "code_size": {
+          "file_path": "C:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s08_opt_passes\\optimized.exe",
+          "file_size_bytes": 115200,
+          "text_size_bytes": 63009,
+          "data_size_bytes": 48924,
+          "bss_size_bytes": 0,
+          "size_source": "llvm-size .text section (PE format)",
+          "primary_metric": "text_size_bytes",
+          "primary_value": 63009,
+          "llvm_size_raw": "text\t   data\t    bss\t    dec\t    hex\tfilename\n  63009\t  48924\t      0\t 111933\t  1b53d\tC:\\Users\\rithv\\AppData\\Local\\Temp\\toacd_moo_security_checks_c_lsu8xz3i\\s08_opt_passes\\optimized.exe"
+        },
+        "energy": {
+          "energy_joules": 0.66490425,
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "energy_is_estimated": true
+        },
+        "carbon": {
+          "carbon_grams": 8.052729250000001e-05,
+          "grid_intensity_g_per_kwh": 436.0,
+          "grid_intensity_source": "IEA 2023 world average (436 gCO2eq/kWh); override via TOACD_GRID_INTENSITY_G_PER_KWH",
+          "energy_source": "estimated: elapsed_time * TDP(45.0W) * utilisation(1.0)",
+          "carbon_is_estimated": true
+        },
+        "measurement_error": null
+      },
+      "normalized": {
+        "strategy": "mem2reg,instcombine,simplifycfg,dce,gvn,loop-unroll",
+        "is_fully_valid": true,
+        "objectives": [
+          {
+            "objective": {
+              "name": "execution_time",
+              "lower_is_better": true,
+              "unit": "seconds",
+              "description": "Median wall-clock execution time of the compiled program"
+            },
+            "raw_value": 0.01477565,
+            "baseline_value": 0.0167864,
+            "normalized_value": 0.8802155316208359,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "energy",
+              "lower_is_better": true,
+              "unit": "joules",
+              "description": "Estimated CPU energy consumption (elapsed_time \u00d7 TDP \u00d7 utilisation); marked as estimated \u2014 not a hardware measurement"
+            },
+            "raw_value": 0.66490425,
+            "baseline_value": 0.755388,
+            "normalized_value": 0.880215531620836,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "code_size",
+              "lower_is_better": true,
+              "unit": "bytes",
+              "description": "Primary code-size metric: PE .text section bytes via llvm-size when available, raw file size otherwise"
+            },
+            "raw_value": 63009.0,
+            "baseline_value": 63025.0,
+            "normalized_value": 0.9997461324871083,
+            "note": ""
+          },
+          {
+            "objective": {
+              "name": "carbon",
+              "lower_is_better": true,
+              "unit": "grams CO2eq",
+              "description": "Estimated carbon footprint derived from estimated energy and grid intensity (gCO2eq/kWh); marked as estimated"
+            },
+            "raw_value": 8.052729250000001e-05,
+            "baseline_value": 9.148587999999999e-05,
+            "normalized_value": 0.8802155316208361,
+            "note": ""
+          }
+        ]
+      },
+      "pareto_status": "DOMINATED",
+      "dominated_by": [
+        "-O1"
+      ]
+    }
+  ],
+  "pareto_frontier": [
+    "-O1"
+  ],
+  "pareto_dominated": [
+    "-O0",
+    "-O2",
+    "-O3",
+    "mem2reg,instcombine",
+    "mem2reg,simplifycfg",
+    "mem2reg,instcombine,simplifycfg,dce",
+    "mem2reg,instcombine,simplifycfg,gvn,loop-unroll",
+    "mem2reg,instcombine,simplifycfg,dce,gvn,loop-unroll"
+  ],
+  "pareto_invalid": [],
+  "objectives_used": [
+    "execution_time",
+    "energy",
+    "code_size",
+    "carbon"
+  ],
+  "pipeline_error": null,
+  "summary": {
+    "n_strategies": 9,
+    "n_valid": 9,
+    "n_invalid": 0,
+    "n_frontier": 1,
+    "n_dominated": 8
+  }
+}

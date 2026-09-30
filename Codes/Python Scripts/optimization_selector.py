@@ -26,9 +26,38 @@ def get_best_optimization(c_file_path):
 
     with torch.no_grad():
         q_values = model(state)
+        # Keep the original argmax as the unconditional fallback.
         action_idx = torch.argmax(q_values).item()
 
-    return ACTIONS[action_idx]
+    # --- Stage 4: MOO-aware candidate filter ---
+    # Attempt to intersect the AI's Q-value ranking with the Pareto frontier.
+    # Any exception at any step falls back to the original argmax result above.
+    try:
+        import sys
+        import os as _os
+        _moo_parent = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+        if _moo_parent not in sys.path:
+            sys.path.insert(0, _moo_parent)
+
+        from moo.selector_bridge import get_pareto_frontier_for, moo_aware_select
+
+        frontier = get_pareto_frontier_for(c_file_path)
+        result = moo_aware_select(
+            c_file_path,
+            q_values.tolist(),
+            ACTIONS,
+            frontier,
+        )
+        print(f"[MOO-aware selector] {result.reason}")
+        if result.filtered_out:
+            print(f"[MOO-aware selector] MOO filtered: {result.filtered_out}")
+        return result.strategy
+
+    except Exception as _moo_exc:  # noqa: BLE001
+        # Fallback: exact original behavior — argmax already computed above.
+        print(f"[MOO-aware selector] MOO unavailable ({_moo_exc}); "
+              f"using original AI selection.")
+        return ACTIONS[action_idx]
 
 
 def apply_optimization(input_c, output_ll, action):
