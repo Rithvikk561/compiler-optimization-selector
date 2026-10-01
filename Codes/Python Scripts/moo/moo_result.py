@@ -183,6 +183,8 @@ class MOOEvaluationResult:
         return len(self.candidates)
 
     def to_dict(self) -> dict:
+        from .measurement_quality import build_measurement_quality
+
         return {
             "source_file": self.source_file,
             "source_path": self.source_path,
@@ -203,4 +205,8 @@ class MOOEvaluationResult:
                 "n_frontier": len(self.pareto_frontier),
                 "n_dominated": len(self.pareto_dominated),
             },
+            "measurement_quality": build_measurement_quality(
+                self.baseline, self.candidates
+            ),
         }
+
