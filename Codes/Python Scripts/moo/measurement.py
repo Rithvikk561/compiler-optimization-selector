@@ -36,19 +36,45 @@ from . import config
 
 @dataclass
 class TimingStats:
-    """Descriptive statistics derived from raw timing samples (nanoseconds)."""
+    """Descriptive statistics derived from raw timing samples (nanoseconds).
+
+    Week 5 additions (additive — existing fields unchanged):
+        cv          : coefficient of variation = stdev / median.
+                      0.0 when n_samples == 1 or median_ns == 0.
+                      A high CV (> config.CV_WARN_THRESHOLD) indicates noisy
+                      samples; see MeasurementResult.timing_is_reliable.
+        n_timeouts  : count of timed runs that hit the per-run timeout and
+                      were therefore EXCLUDED from raw_samples_ns.
+                      Timed-out runs have their error field set, so they are
+                      not added to raw_samples_ns and do not appear in these
+                      statistics.  This counter lets callers see how many
+                      timeout-excluded runs accompanied this timing result.
+    """
     n_samples: int
     median_ns: float
     min_ns: float
     max_ns: float
     mean_ns: float
-    stdev_ns: float          # population-based; 0.0 when n_samples == 1
+    stdev_ns: float          # sample stdev; 0.0 when n_samples == 1
     median_s: float          # convenience seconds
     mean_s: float
+    # --- Week 5 additions ---
+    cv: float = 0.0          # stdev / median; 0.0 when median == 0 or n == 1
+    n_timeouts: int = 0      # timed runs that timed out (excluded from raw_samples_ns)
 
     @staticmethod
-    def from_samples(samples_ns: list[int]) -> "TimingStats":
-        """Compute statistics from a list of raw nanosecond timings."""
+    def from_samples(
+        samples_ns: list[int],
+        n_timeouts: int = 0,
+    ) -> "TimingStats":
+        """Compute statistics from a list of raw nanosecond timings.
+
+        Parameters
+        ----------
+        samples_ns  : non-empty list of wall-clock nanosecond measurements
+        n_timeouts  : number of those samples that were timeout-flagged
+                      (passed in from measure_execution; default 0)
+        """
         if not samples_ns:
             raise ValueError("Cannot compute TimingStats from empty sample list")
         n = len(samples_ns)
@@ -57,6 +83,9 @@ class TimingStats:
         mx = max(samples_ns)
         mean = statistics.mean(samples_ns)
         std = statistics.stdev(samples_ns) if n > 1 else 0.0
+        # CV: ratio of dispersion to central tendency.
+        # Defined only when median > 0; otherwise 0.0 (degenerate case).
+        cv = (std / float(med)) if (float(med) > 0 and n > 1) else 0.0
         return TimingStats(
             n_samples=n,
             median_ns=float(med),
@@ -66,6 +95,8 @@ class TimingStats:
             stdev_ns=float(std),
             median_s=float(med) / 1e9,
             mean_s=float(mean) / 1e9,
+            cv=cv,
+            n_timeouts=n_timeouts,
         )
 
     def to_dict(self) -> dict:
@@ -78,7 +109,11 @@ class TimingStats:
             "stdev_ns": self.stdev_ns,
             "median_s": self.median_s,
             "mean_s": self.mean_s,
+            # Week 5 additions
+            "cv": self.cv,
+            "n_timeouts": self.n_timeouts,
         }
+
 
 
 @dataclass
@@ -199,6 +234,29 @@ class MeasurementResult:
     energy              — EnergyResult (estimated)
     carbon              — CarbonResult derived from energy
     measurement_error   — subprocess-level error string; None on success
+
+    Week 5 additions (additive — all existing fields unchanged):
+        n_timeouts          — count of timed runs that hit the per-run timeout.
+                              These runs are NOT included in raw_samples_ns
+                              because their error field is set; they are counted
+                              here so callers can see how many samples were
+                              lost to the timeout ceiling.
+        n_errors            — count of timed runs that failed at the subprocess
+                              level for reasons OTHER than timeout
+                              (rec.error is not None and not rec.timed_out).
+                              These runs are also excluded from raw_samples_ns.
+                              Non-zero return codes are NOT errors here; they
+                              are valid measured executions and are timed normally.
+        timing_is_reliable  — True only when ALL five conditions hold:
+                                1. n_samples >= config.MIN_RELIABLE_SAMPLES
+                                2. n_timeouts == 0
+                                3. n_errors == 0
+                                4. median_ns > 0
+                                5. cv <= config.CV_WARN_THRESHOLD
+                              False when timing exists but any condition fails.
+                              None when no valid timing samples were collected.
+                              This field is purely informational — it does NOT
+                              alter any existing measurement or calculation.
     """
     strategy: str
     exe_path: str
@@ -214,6 +272,10 @@ class MeasurementResult:
     energy: Optional[EnergyResult] = None
     carbon: Optional[CarbonResult] = None
     measurement_error: Optional[str] = None
+    # --- Week 5 additions ---
+    n_timeouts: int = 0                       # timeout-flagged timed runs
+    n_errors: int = 0                         # subprocess-error timed runs
+    timing_is_reliable: Optional[bool] = None # True/False/None — see docstring
 
     def to_dict(self) -> dict:
         return {
@@ -231,7 +293,12 @@ class MeasurementResult:
             "energy": self.energy.to_dict() if self.energy else None,
             "carbon": self.carbon.to_dict() if self.carbon else None,
             "measurement_error": self.measurement_error,
+            # Week 5 additions
+            "n_timeouts": self.n_timeouts,
+            "n_errors": self.n_errors,
+            "timing_is_reliable": self.timing_is_reliable,
         }
+
 
 
 # ---------------------------------------------------------------------------
@@ -331,19 +398,29 @@ def measure_execution(
     raw_samples: list[int] = []
     all_rcs: list[int] = []
     last: ExecutionRecord | None = None
+    _n_timeouts = 0   # Week 5: runs that timed out (excluded from raw_samples_ns)
+    _n_errors = 0     # Week 5: subprocess-error runs, excluding timeouts
 
     for _ in range(measure_runs):
         rec = _run_once(exe_path, timeout_s=timeout_s, args=args)
         last = rec
         all_rcs.append(rec.return_code)
+        if rec.timed_out:
+            _n_timeouts += 1       # timed out: count as timeout ONLY
+        elif rec.error is not None:
+            _n_errors += 1         # non-timeout subprocess error
+        # Non-zero return codes are NOT errors — they are valid timed runs.
+
         if rec.error is None:
-            # Only collect timing for runs that didn't error at the subprocess level.
-            # Timed-out runs still contribute their elapsed time (it is meaningful).
+            # Only collect timing for runs with no subprocess-level error.
+            # Timed-out runs have their error field set, so they are excluded
+            # from raw_samples_ns.
             raw_samples.append(rec.elapsed_ns)
-        # Note: we do NOT skip non-zero return codes — they are still timed.
 
     result.raw_samples_ns = raw_samples
     result.all_return_codes = all_rcs
+    result.n_timeouts = _n_timeouts  # Week 5
+    result.n_errors = _n_errors      # Week 5
 
     if last is not None:
         result.last_return_code = last.return_code
@@ -353,16 +430,27 @@ def measure_execution(
             result.measurement_error = last.error
 
     if raw_samples:
-        result.timing = TimingStats.from_samples(raw_samples)
-        # Derive energy and carbon from the median elapsed time
+        result.timing = TimingStats.from_samples(raw_samples, n_timeouts=_n_timeouts)
+        # Derive energy and carbon from the median elapsed time (unchanged)
         result.energy = estimate_energy(result.timing.median_s)
         result.carbon = derive_carbon(result.energy)
+        # Week 5: timing_is_reliable — True only when ALL five conditions hold.
+        # Purely informational: does NOT alter any measurement value.
+        result.timing_is_reliable = (
+            result.timing.n_samples >= config.MIN_RELIABLE_SAMPLES
+            and result.n_timeouts == 0
+            and result.n_errors == 0
+            and result.timing.median_ns > 0
+            and result.timing.cv <= config.CV_WARN_THRESHOLD
+        )
     else:
         result.measurement_error = (
             result.measurement_error or "No valid timing samples collected"
         )
+        # timing_is_reliable stays None when no valid samples exist
 
     return result
+
 
 
 # ---------------------------------------------------------------------------

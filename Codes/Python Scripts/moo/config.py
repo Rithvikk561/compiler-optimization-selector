@@ -367,3 +367,25 @@ GRID_INTENSITY_SOURCE: str = (
 # Carbon is estimated whenever energy is estimated.
 CARBON_IS_ESTIMATED: bool = ENERGY_IS_ESTIMATED
 
+
+# ---------------------------------------------------------------------------
+# Measurement quality thresholds  (Week 5 addition)
+# ---------------------------------------------------------------------------
+
+# Coefficient-of-variation threshold for timing noise detection.
+# If stdev / median > CV_WARN_THRESHOLD the measurement is flagged as noisy
+# (timing_is_reliable = False in MeasurementResult).
+# A value of 0.10 means "flag when noise exceeds 10% of the median time".
+# Override with TOACD_CV_WARN_THRESHOLD.
+CV_WARN_THRESHOLD: float = float(
+    os.environ.get("TOACD_CV_WARN_THRESHOLD", "0.10")
+)
+
+# Minimum number of valid timing samples (non-timeout, non-error) required
+# for timing_is_reliable to be True.  Fewer samples means the median and CV
+# are not statistically robust.
+# Override with TOACD_MIN_RELIABLE_SAMPLES.
+MIN_RELIABLE_SAMPLES: int = int(
+    os.environ.get("TOACD_MIN_RELIABLE_SAMPLES", "5")
+)
+
