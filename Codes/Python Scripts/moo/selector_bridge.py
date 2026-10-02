@@ -169,6 +169,26 @@ def _load_moo_report(json_path: str) -> Optional[dict]:
     return data
 
 
+def _load_report_for_trace(
+    source_path: str,
+    report_dir: Optional[str] = None,
+) -> Optional[dict]:
+    """
+    Load the most recent moo_*.json for source_path and return the full dict.
+    Returns None on any failure (no report found, I/O error, validation failure).
+    This is an internal helper — not part of the public API.
+    """
+    json_path = _find_latest_moo_report(source_path, report_dir)
+    if json_path is None:
+        return None
+    data = _load_moo_report(json_path)
+    if data is None:
+        return None
+    if data.get("pipeline_error"):
+        return None
+    return data
+
+
 # ---------------------------------------------------------------------------
 # Public: get_pareto_frontier_for()
 # ---------------------------------------------------------------------------
@@ -435,6 +455,197 @@ def _moo_aware_select_impl(
         moo_active=True,
         filtered_out=filtered_out,
     )
+
+
+# ---------------------------------------------------------------------------
+# Public: moo_aware_select_with_trace()
+# ---------------------------------------------------------------------------
+
+def moo_aware_select_with_trace(
+    source_path: str,
+    q_values: list[float],
+    actions: list[str],
+    frontier: list[str],
+    *,
+    report_data: Optional[dict] = None,
+) -> tuple[SelectionResult, Optional["DecisionTrace"]]:
+    """
+    Same selection algorithm as moo_aware_select(). Additionally returns a
+    DecisionTrace capturing the full reasoning chain.
+
+    Parameters
+    ----------
+    source_path  : path to the source file (used only for logging)
+    q_values     : list of floats, one per action (DQN output, in ACTIONS order)
+    actions      : list of action strings, parallel to q_values
+    frontier     : Pareto-frontier strategy names (from get_pareto_frontier_for())
+    report_data  : optional full moo_*.json dict (from _load_report_for_trace()).
+                   If None, objective_snapshot will be empty and dominated/invalid
+                   lists will be derived from frontier alone.
+
+    Returns
+    -------
+    (SelectionResult, DecisionTrace | None)
+    SelectionResult is identical to what moo_aware_select() would return.
+    DecisionTrace is None if trace construction itself raises an exception.
+
+    Safety
+    ------
+    This function NEVER raises. Any exception in selection falls back to argmax
+    (same as moo_aware_select). Any exception in trace construction returns
+    (result, None) without affecting the selection result.
+    """
+    # Step 1: run the existing selection (unchanged algorithm)
+    result = moo_aware_select(source_path, q_values, actions, frontier)
+
+    # Step 2: build trace (may return None on failure)
+    trace = _build_decision_trace(
+        q_values=q_values,
+        actions=actions,
+        frontier=frontier,
+        result=result,
+        report_data=report_data,
+    )
+    return result, trace
+
+
+def _build_decision_trace(
+    q_values: list[float],
+    actions: list[str],
+    frontier: list[str],
+    result: SelectionResult,
+    report_data: Optional[dict],
+) -> Optional["DecisionTrace"]:
+    """
+    Construct a DecisionTrace from the inputs and the SelectionResult.
+    Returns None on any exception — never raises.
+    """
+    try:
+        from .decision_trace import (
+            DecisionTrace,
+            ObjectiveSnapshot,
+            SELECTION_METHOD_MOO_AWARE,
+            SELECTION_METHOD_ARGMAX_NO_FRONTIER,
+            SELECTION_METHOD_ARGMAX_FRONTIER_MISMATCH,
+            SELECTION_METHOD_ARGMAX_EXCEPTION,
+        )
+
+        # --- AI layer ---
+        q_rank_full = sorted(
+            zip(actions, q_values),
+            key=lambda av: av[1],
+            reverse=True,
+        )
+        ai_top_choice = q_rank_full[0][0] if q_rank_full else (actions[0] if actions else "")
+        ai_top_q = q_rank_full[0][1] if q_rank_full else 0.0
+
+        # --- Pareto layer (from report_data where available) ---
+        pareto_dominated = list(report_data.get("pareto_dominated", [])) if report_data else []
+        pareto_invalid   = list(report_data.get("pareto_invalid",   [])) if report_data else []
+        objectives_used  = list(report_data.get("objectives_used",  [])) if report_data else []
+
+        # --- Filtering ---
+        if not frontier:
+            ai_choice_was_pareto_optimal = None
+        else:
+            ai_choice_was_pareto_optimal = (ai_top_choice in set(frontier))
+
+        candidates_considered = [
+            act for act, _ in q_rank_full
+            if act in set(frontier)
+        ]
+
+        # --- Selection method ---
+        if "exception" in result.reason:
+            selection_method = SELECTION_METHOD_ARGMAX_EXCEPTION
+        elif result.moo_active:
+            selection_method = SELECTION_METHOD_MOO_AWARE
+        elif not frontier:
+            selection_method = SELECTION_METHOD_ARGMAX_NO_FRONTIER
+        elif frontier and not candidates_considered:
+            selection_method = SELECTION_METHOD_ARGMAX_FRONTIER_MISMATCH
+        else:
+            # moo_active=False with a non-empty frontier and candidates:
+            # this means the AI top choice IS on the frontier (no filter needed)
+            selection_method = SELECTION_METHOD_MOO_AWARE
+
+        # --- Objective snapshot ---
+        snapshot_targets = set(candidates_considered) | {ai_top_choice}
+        objective_snapshot = _build_objective_snapshot(
+            targets=snapshot_targets,
+            q_rank_full=q_rank_full,
+            report_data=report_data,
+        )
+
+        return DecisionTrace(
+            ai_top_choice=ai_top_choice,
+            ai_top_q=ai_top_q,
+            q_rank_full=list(q_rank_full),
+            pareto_frontier=list(frontier),
+            pareto_dominated=pareto_dominated,
+            pareto_invalid=pareto_invalid,
+            objectives_used=objectives_used,
+            moo_active=result.moo_active,
+            ai_choice_was_pareto_optimal=ai_choice_was_pareto_optimal,
+            candidates_considered=candidates_considered,
+            filtered_out=list(result.filtered_out),
+            final_strategy=result.strategy,
+            selection_reason=result.reason,
+            selection_method=selection_method,
+            objective_snapshot=objective_snapshot,
+        )
+    except Exception as exc:
+        logger.warning("selector_bridge: _build_decision_trace failed: %s", exc)
+        return None
+
+
+def _build_objective_snapshot(
+    targets: set[str],
+    q_rank_full: list[tuple[str, float]],
+    report_data: Optional[dict],
+) -> list["ObjectiveSnapshot"]:
+    """
+    Build ObjectiveSnapshot list for each strategy in *targets*.
+    Normalized values come from report_data["candidates"][*]["normalized"].
+    q_value comes from q_rank_full.
+    Returns [] if report_data is None.
+    """
+    from .decision_trace import ObjectiveSnapshot
+
+    if not report_data:
+        return []
+
+    q_map = {act: qv for act, qv in q_rank_full}
+    snapshots = []
+
+    for cand_dict in report_data.get("candidates", []):
+        name = cand_dict.get("strategy_name", "")
+        if name not in targets:
+            continue
+
+        norm = cand_dict.get("normalized") or {}
+        # Extract normalized objective values from the serialized
+        # NormalizedObjectiveVector structure: {"objectives": [{"objective": {"name": "..."}, "normalized_value": ...}]}
+        obj_values = {}
+        for row in norm.get("objectives", []):
+            obj_name = row.get("objective", {}).get("name")
+            val = row.get("normalized_value")
+            if obj_name and isinstance(val, (int, float)):
+                obj_values[obj_name] = float(val)
+
+        snapshots.append(ObjectiveSnapshot(
+            strategy_name=name,
+            pareto_status=cand_dict.get("pareto_status", "UNKNOWN"),
+            execution_time_ratio=obj_values.get("execution_time"),
+            energy_ratio=obj_values.get("energy"),
+            code_size_ratio=obj_values.get("code_size"),
+            carbon_ratio=obj_values.get("carbon"),
+            q_value=q_map.get(name),
+        ))
+
+    # Sort by Q-value descending for deterministic output
+    snapshots.sort(key=lambda s: (s.q_value is None, -(s.q_value or 0.0)))
+    return snapshots
 
 
 # ---------------------------------------------------------------------------

@@ -105,7 +105,7 @@ def _status_tag(c: CandidateResult) -> str:
 # Main print function
 # ---------------------------------------------------------------------------
 
-def print_moo_summary(result: MOOEvaluationResult, file=None) -> None:
+def print_moo_summary(result: MOOEvaluationResult, file=None, *, print_trace: bool = False) -> None:
     """
     Print a human-readable Stage 3 MOO summary to *file* (default: stdout).
     """
@@ -283,6 +283,137 @@ def print_moo_summary(result: MOOEvaluationResult, file=None) -> None:
 
     w()
     w(f"  Objectives used in Pareto: {', '.join(result.objectives_used)}")
+    w(SEP)
+    w()
+
+    if print_trace and getattr(result, "decision_trace", None):
+        print_decision_trace_summary(result.decision_trace, file=out)
+
+
+# ---------------------------------------------------------------------------
+# Decision Trace printer
+# ---------------------------------------------------------------------------
+
+def print_decision_trace_summary(
+    trace: "DecisionTrace",
+    file=None,
+    *,
+    show_q_rank: bool = True,
+    max_q_rank_entries: int = 5,
+) -> None:
+    """
+    Print a structured decision-trace summary to *file* (default: stdout).
+
+    Called only when the caller explicitly opts in (print_trace=True).
+    Does NOT change print_moo_summary() behavior.
+
+    Parameters
+    ----------
+    trace              : DecisionTrace to print
+    file               : output file (default: sys.stdout)
+    show_q_rank        : if True, print the AI Q-value ranking table
+    max_q_rank_entries : maximum number of q_rank entries to print (0 = all)
+    """
+    import sys
+    out = file or sys.stdout
+
+    def w(*args, **kw):
+        print(*args, file=out, **kw)
+
+    SEP = "=" * 66
+
+    w()
+    w(SEP)
+    w("  DECISION TRACE")
+    w(SEP)
+    w(f"  Selection method : {trace.selection_method}")
+    if trace.ai_choice_was_pareto_optimal is True:
+        opt_note = "Pareto-optimal"
+    elif trace.ai_choice_was_pareto_optimal is False:
+        opt_note = "NOT Pareto-optimal"
+    else:
+        opt_note = "Pareto status unknown"
+    w(f"  AI top choice    : {trace.ai_top_choice}  (Q={trace.ai_top_q:.3f})  [{opt_note}]")
+    w(f"  Final selection  : {trace.final_strategy}  [{trace.selection_reason}]")
+    w(f"  MOO active       : {'yes' if trace.moo_active else 'no'}")
+    if trace.objectives_used:
+        w(f"  Objectives used  : {', '.join(trace.objectives_used)}")
+
+    if show_q_rank and trace.q_rank_full:
+        entries = trace.q_rank_full
+        if max_q_rank_entries > 0:
+            entries = entries[:max_q_rank_entries]
+
+        w()
+        w(f"  AI Q-value ranking (top {len(entries)} of {len(trace.q_rank_full)}):")
+        w(f"    {'Rank':<4}  {'Strategy':<33}  {'Q-value':<7}   {'Pareto':<10}")
+        w(f"    {'-'*4}  {'-'*33}  {'-'*7}   {'-'*10}")
+
+        frontier_set = set(trace.pareto_frontier)
+        dominated_set = set(trace.pareto_dominated)
+        invalid_set = set(trace.pareto_invalid)
+
+        for i, (strat, qv) in enumerate(entries, 1):
+            if strat in frontier_set:
+                p_status = "FRONTIER"
+            elif strat in dominated_set:
+                p_status = "DOMINATED"
+            elif strat in invalid_set:
+                p_status = "INVALID"
+            else:
+                p_status = "UNKNOWN"
+
+            marker = ""
+            if strat == trace.final_strategy and strat == trace.ai_top_choice:
+                marker = " ← selected & AI choice"
+            elif strat == trace.final_strategy:
+                marker = " ← selected"
+            elif strat == trace.ai_top_choice:
+                marker = " ← AI choice"
+
+            w(f"    {i:<4}  {strat:<33}  {qv:7.3f}   {p_status:<10}{marker}")
+
+    if trace.candidates_considered:
+        w()
+        w("  Candidates considered (Pareto frontier ∩ ACTIONS):")
+        w("    " + "  • ".join(["• " + c for c in trace.candidates_considered]))
+
+    if trace.filtered_out:
+        w()
+        w("  Filtered out by MOO (higher-Q, not Pareto-efficient):")
+        w("    " + "  • ".join(["• " + f for f in trace.filtered_out]))
+
+    if trace.objective_snapshot:
+        w()
+        w("  Objective snapshot (normalized = candidate / baseline; <1.0 = improvement):")
+        w(f"    {'Strategy':<20}  {'Time':>7}  {'Energy':>7}  {'Size':>7}  {'Carbon':>7}  {'Q':>7}")
+        w(f"    {'-'*20}  {'-'*7}  {'-'*7}  {'-'*7}  {'-'*7}  {'-'*7}")
+
+        for snap in trace.objective_snapshot:
+            def _fmt_r(val):
+                return f"{val:7.3f}" if val is not None else "    N/A"
+
+            def _fmt_q(val):
+                return f"{val:7.3f}" if val is not None else "    N/A"
+
+            t_str = _fmt_r(snap.execution_time_ratio)
+            e_str = _fmt_r(snap.energy_ratio)
+            s_str = _fmt_r(snap.code_size_ratio)
+            c_str = _fmt_r(snap.carbon_ratio)
+            q_str = _fmt_q(snap.q_value)
+
+            marker = ""
+            if snap.strategy_name == trace.final_strategy:
+                marker = "  ← selected"
+            elif snap.strategy_name == trace.ai_top_choice:
+                marker = "  ← AI choice"
+
+            name_tag = f"{snap.strategy_name} [{snap.pareto_status}]"
+            if len(name_tag) > 20:
+                name_tag = name_tag[:19] + "…"
+
+            w(f"    {name_tag:<20}  {t_str}  {e_str}  {s_str}  {c_str}  {q_str}{marker}")
+
     w(SEP)
     w()
 

@@ -13,7 +13,7 @@ MODEL_PATH = os.path.join(
 OPT_PATH = r"C:\Users\rithv\Downloads\clang+llvm-23.1.0-x86_64-pc-windows-msvc\clang+llvm-23.1.0-x86_64-pc-windows-msvc\bin\opt.exe"
 
 
-def get_best_optimization(c_file_path):
+def get_best_optimization(c_file_path, *, return_trace=False):
     env = CompilerEnv(c_file_path)
     state = torch.FloatTensor(env.features)
 
@@ -23,7 +23,7 @@ def get_best_optimization(c_file_path):
         model.load_state_dict(torch.load(MODEL_PATH, weights_only=True))
     else:
         print(f"Error: {MODEL_PATH} not found.")
-        return None
+        return (None, None) if return_trace else None
 
     model.eval()
 
@@ -42,25 +42,38 @@ def get_best_optimization(c_file_path):
         if _moo_parent not in sys.path:
             sys.path.insert(0, _moo_parent)
 
-        from moo.selector_bridge import get_pareto_frontier_for, moo_aware_select
+        from moo.selector_bridge import (
+            moo_aware_select_with_trace,
+            _load_report_for_trace,
+        )
 
-        frontier = get_pareto_frontier_for(c_file_path)
-        result = moo_aware_select(
+        report_data = _load_report_for_trace(c_file_path)
+        frontier = list(report_data.get("pareto_frontier", [])) if report_data else []
+
+        result, trace = moo_aware_select_with_trace(
             c_file_path,
             q_values.tolist(),
             ACTIONS,
             frontier,
+            report_data=report_data,
         )
         print(f"[MOO-aware selector] {result.reason}")
         if result.filtered_out:
             print(f"[MOO-aware selector] MOO filtered: {result.filtered_out}")
-        return result.strategy
+
+        strategy = result.strategy
+        if return_trace:
+            return strategy, trace
+        return strategy
 
     except Exception as _moo_exc:  # noqa: BLE001
         # Fallback: exact original behavior — argmax already computed above.
         print(f"[MOO-aware selector] MOO unavailable ({_moo_exc}); "
               f"using original AI selection.")
-        return ACTIONS[action_idx]
+        fallback = ACTIONS[action_idx]
+        if return_trace:
+            return fallback, None
+        return fallback
 
 
 def apply_optimization(input_c, output_ll, action):

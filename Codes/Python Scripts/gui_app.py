@@ -17,6 +17,7 @@ class CompilerGUI:
         self.root.geometry("1440x900"); self.root.minsize(1150,700)
         self.root.configure(bg=BG)
         self.selected_file=None; self.strategy="—"; self.running=False
+        self.last_trace=None
         self.results={"o3":{"time":None,"size":None,"security":"—"},
                       "ai":{"time":None,"size":None,"security":"—"}}
         self.pages={}; self.nav={}
@@ -235,9 +236,21 @@ class CompilerGUI:
     def _run_thread(self,mode):
         ll="gui_ai.ll" if mode=="AI" else "gui_o3.ll"; exe="gui_ai.exe" if mode=="AI" else "gui_o3.exe"
         try:
-            strategy=get_best_optimization(self.selected_file) if mode=="AI" else "-O3"
+            if mode == "AI":
+                result = get_best_optimization(self.selected_file, return_trace=True)
+                if isinstance(result, tuple):
+                    strategy, trace = result
+                    self.last_trace = trace
+                else:
+                    strategy = result
+                    self.last_trace = None
+            else:
+                strategy = "-O3"
+                self.last_trace = None
             if not strategy: raise RuntimeError("AI failed to select an optimization strategy.")
             self.strategy=strategy; self._log(("AI selected: " if mode=="AI" else "Using baseline: ")+strategy)
+            if self.last_trace:
+                self._log(f"Decision Trace: {self.last_trace.selection_reason}")
             if not apply_optimization(self.selected_file,ll,strategy): raise RuntimeError("LLVM optimization failed.")
             r=subprocess.run([CLANG_PATH,ll,"-o",exe],capture_output=True,text=True)
             if r.returncode!=0: raise RuntimeError(r.stderr)
@@ -266,7 +279,20 @@ class CompilerGUI:
         o=self.results["o3"]; a=self.results["ai"]
         self.dtime.config(text=self.fmt_time(a["time"])); self.dsize.config(text=self.fmt_size(a["size"]))
         self.dsec.config(text=a["security"]); self.dstrategy.config(text="AI Selected" if self.strategy!="-O3" else "—")
-        self.strategy_text.config(text=self.strategy); self.optlabel.config(text=self.strategy)
+        label = self.strategy
+        trace = self.last_trace
+        if trace and trace.ai_choice_was_pareto_optimal is False:
+            label += f"\n[MOO: AI preferred '{trace.ai_top_choice}' — not Pareto-optimal]"
+        elif trace and trace.moo_active and trace.ai_choice_was_pareto_optimal:
+            label += f"\n[MOO: AI choice was Pareto-optimal]"
+        elif trace and not trace.moo_active:
+            label += f"\n[No MOO data — pure AI selection]"
+        self.strategy_text.config(text=label)
+
+        opt_text = self.strategy
+        if trace and trace.selection_method:
+            opt_text += f"  [{trace.selection_method}]"
+        self.optlabel.config(text=opt_text)
         vals=[("time",self.fmt_time(o["time"]),self.fmt_time(a["time"]),self.change(o["time"],a["time"])),
               ("size",self.fmt_size(o["size"]),self.fmt_size(a["size"]),self.change(o["size"],a["size"])),
               ("security",o["security"],a["security"],"—")]

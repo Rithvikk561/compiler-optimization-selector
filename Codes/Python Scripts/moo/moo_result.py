@@ -168,6 +168,7 @@ class MOOEvaluationResult:
 
     objectives_used: list = dataclasses.field(default_factory=list)
     pipeline_error: Optional[str] = None
+    decision_trace: Optional["DecisionTrace"] = None
 
     # ----------------------------------------------------------------
     # Convenience views
@@ -185,7 +186,7 @@ class MOOEvaluationResult:
     def to_dict(self) -> dict:
         from .measurement_quality import build_measurement_quality
 
-        return {
+        res = {
             "source_file": self.source_file,
             "source_path": self.source_path,
             "timestamp": self.timestamp,
@@ -209,4 +210,7 @@ class MOOEvaluationResult:
                 self.baseline, self.candidates
             ),
         }
+        if self.decision_trace is not None:
+            res["decision_trace"] = self.decision_trace.to_dict()
+        return res
 
