@@ -1,0 +1,110 @@
+{
+  "metadata": {
+    "generated_at": "2026-10-02T08:28:49.099563+00:00",
+    "source_directory": "Codes\\test_cases",
+    "total_programs_scanned": 62,
+    "non_trivial_programs_count": 40,
+    "trivial_programs_count": 22,
+    "trivial_definition": "InstructionsCount < 35.0 (straight-line prologue/epilogue without algorithmic branching)",
+    "percentile_selection": "75th percentile of non-trivial program subset",
+    "feature_schema": [
+      "BasicBlocksCount",
+      "InstructionsCount",
+      "BranchCount",
+      "MemInstCount",
+      "MathInstCount",
+      "FloatInstCount",
+      "VectorInstCount",
+      "CallInstCount"
+    ]
+  },
+  "thresholds": {
+    "trivial_instructions": 35.0,
+    "branch_count": 9.0,
+    "compute_count": 5.0,
+    "mem_count": 45.25,
+    "call_count": 2.0
+  },
+  "summary_percentiles": {
+    "p50": {
+      "branch_count": 5.0,
+      "compute_count": 3.0,
+      "mem_count": 23.0,
+      "call_count": 1.0
+    },
+    "p75": {
+      "branch_count": 9.0,
+      "compute_count": 5.0,
+      "mem_count": 45.25,
+      "call_count": 2.0
+    }
+  },
+  "reference_program_counts": {
+    "non_trivial_programs": [
+      "02_arithmetic.c",
+      "04_while_loop.c",
+      "05_for_loop.c",
+      "06_nested_loops.c",
+      "08_recursion.c",
+      "14_switch_case.c",
+      "24_do_while.c",
+      "25_complex_expression.c",
+      "26_bubble_sort.c",
+      "27_binary_search.c",
+      "28_fibonacci_iter.c",
+      "29_factorial_loop.c",
+      "30_matrix_add.c",
+      "31_palindrome_check.c",
+      "32_prime_check.c",
+      "34_dynamic_memory_sim.c",
+      "35_string_length.c",
+      "36_string_copy.c",
+      "37_struct_array.c",
+      "39_multi_dimensional_array.c",
+      "40_gcd.c",
+      "41_lcm.c",
+      "43_float_accumulator.c",
+      "46_switch_fallthrough.c",
+      "47_nested_if.c",
+      "48_recursive_sum.c",
+      "49_array_reversal.c",
+      "50_complex_math_sim.c",
+      "TC1_loop_heavy.c",
+      "TC2_security_bounds_check.c",
+      "TC3_math_intensive.c",
+      "TC4_security_null_overflow.c",
+      "TC5_recursive_fibonacci.c",
+      "ai_test_security_checks.c",
+      "loops_branches.c",
+      "math_heavy.c",
+      "memory_ops.c",
+      "recursive_ops.c",
+      "security_checks.c",
+      "test_pass.c"
+    ],
+    "trivial_programs": [
+      "01_hello_world.c",
+      "03_if_else.c",
+      "07_functions.c",
+      "09_arrays.c",
+      "10_pointers.c",
+      "11_array_pointers.c",
+      "12_structs.c",
+      "13_nested_structs.c",
+      "15_ternary_op.c",
+      "16_bitwise_ops.c",
+      "17_float_arithmetic.c",
+      "18_type_casting.c",
+      "19_global_vars.c",
+      "20_static_vars.c",
+      "21_unions.c",
+      "22_enums.c",
+      "23_void_pointers.c",
+      "33_pointer_arithmetic.c",
+      "38_union_bitwise.c",
+      "42_bit_shift_mult.c",
+      "44_struct_pointer.c",
+      "45_func_pointer.c"
+    ]
+  }
+}

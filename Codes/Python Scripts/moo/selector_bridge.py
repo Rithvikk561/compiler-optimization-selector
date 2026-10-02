@@ -468,6 +468,7 @@ def moo_aware_select_with_trace(
     frontier: list[str],
     *,
     report_data: Optional[dict] = None,
+    ir_features: Optional[dict[str, float] | Sequence[float]] = None,
 ) -> tuple[SelectionResult, Optional["DecisionTrace"]]:
     """
     Same selection algorithm as moo_aware_select(). Additionally returns a
@@ -482,6 +483,7 @@ def moo_aware_select_with_trace(
     report_data  : optional full moo_*.json dict (from _load_report_for_trace()).
                    If None, objective_snapshot will be empty and dominated/invalid
                    lists will be derived from frontier alone.
+    ir_features  : optional canonical 8 IR features (dict or sequence) from unoptimized IR.
 
     Returns
     -------
@@ -505,6 +507,7 @@ def moo_aware_select_with_trace(
         frontier=frontier,
         result=result,
         report_data=report_data,
+        ir_features=ir_features,
     )
     return result, trace
 
@@ -515,6 +518,7 @@ def _build_decision_trace(
     frontier: list[str],
     result: SelectionResult,
     report_data: Optional[dict],
+    ir_features: Optional[dict[str, float] | Sequence[float]] = None,
 ) -> Optional["DecisionTrace"]:
     """
     Construct a DecisionTrace from the inputs and the SelectionResult.
@@ -577,6 +581,10 @@ def _build_decision_trace(
             report_data=report_data,
         )
 
+        # --- IR Features (Week 7) ---
+        from .xai import format_ir_features
+        feats_dict = format_ir_features(ir_features)
+
         return DecisionTrace(
             ai_top_choice=ai_top_choice,
             ai_top_q=ai_top_q,
@@ -593,6 +601,7 @@ def _build_decision_trace(
             selection_reason=result.reason,
             selection_method=selection_method,
             objective_snapshot=objective_snapshot,
+            ir_features=feats_dict,
         )
     except Exception as exc:
         logger.warning("selector_bridge: _build_decision_trace failed: %s", exc)

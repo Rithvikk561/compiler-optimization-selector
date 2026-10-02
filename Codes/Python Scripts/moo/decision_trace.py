@@ -140,10 +140,16 @@ class DecisionTrace:
     # --- Objective snapshot ---
     objective_snapshot: list[ObjectiveSnapshot]
 
+    # --- Week 7: Optional Input Features ---
+    ir_features: Optional[dict[str, float]] = None
+
+    # --- Week 7 Phase 2B: Optional Program Profile (informational only) ---
+    program_profile: Optional[dict] = None
+
     # ----------------------------------------------------------------
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "ai_top_choice": self.ai_top_choice,
             "ai_top_q": self.ai_top_q,
             "q_rank_full": [list(pair) for pair in self.q_rank_full],
@@ -160,6 +166,11 @@ class DecisionTrace:
             "selection_method": self.selection_method,
             "objective_snapshot": [s.to_dict() for s in self.objective_snapshot],
         }
+        if self.ir_features is not None:
+            d["ir_features"] = {str(k): float(v) for k, v in self.ir_features.items()}
+        if self.program_profile is not None:
+            d["program_profile"] = dict(self.program_profile)
+        return d
 
     @staticmethod
     def from_dict(d: dict) -> "DecisionTrace":
@@ -168,6 +179,14 @@ class DecisionTrace:
         Unknown keys are silently ignored for forward compatibility.
         Missing keys fall back to safe defaults (backward compatibility).
         """
+        raw_feats = d.get("ir_features")
+        feats = (
+            {str(k): float(v) for k, v in raw_feats.items()}
+            if isinstance(raw_feats, dict)
+            else None
+        )
+        raw_prof = d.get("program_profile")
+        profile = dict(raw_prof) if isinstance(raw_prof, dict) else None
         return DecisionTrace(
             ai_top_choice=d.get("ai_top_choice", ""),
             ai_top_q=d.get("ai_top_q", 0.0),
@@ -187,4 +206,11 @@ class DecisionTrace:
                 ObjectiveSnapshot.from_dict(s)
                 for s in d.get("objective_snapshot", [])
             ],
+            ir_features=feats,
+            program_profile=profile,
         )
+
+    def to_xai_result(self, ir_features: Optional[dict[str, float]] = None) -> Any:
+        """Convert this DecisionTrace into an XAIResult (Week 7)."""
+        from .xai import create_xai_result
+        return create_xai_result(self, ir_features=ir_features)

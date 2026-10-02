@@ -18,6 +18,7 @@ class CompilerGUI:
         self.root.configure(bg=BG)
         self.selected_file=None; self.strategy="—"; self.running=False
         self.last_trace=None
+        self.last_xai=None
         self.results={"o3":{"time":None,"size":None,"security":"—"},
                       "ai":{"time":None,"size":None,"security":"—"}}
         self.pages={}; self.nav={}
@@ -147,10 +148,40 @@ class CompilerGUI:
     def make_ir(self):
         p=self.page("IR Analysis")
         body=tk.Frame(p,bg=BG); body.pack(fill="both",expand=True)
-        a=self.section(body,"IR Features","8 compiler features"); a.configure(width=300); a.pack_propagate(False); a.pack(side="left",fill="y",padx=(0,7))
-        self.features=tk.Text(a,bg=WHITE,fg=TEXT,relief="flat",font=("Consolas",9),padx=14,pady=10,state="disabled"); self.features.pack(fill="both",expand=True,padx=12,pady=(0,12))
+        a=self.section(body,"IR Analysis","Features & Program Profile"); a.configure(width=320); a.pack_propagate(False); a.pack(side="left",fill="y",padx=(0,7))
+        tk.Label(a,text="8 IR FEATURES",bg=WHITE,fg=MUTED,font=("Segoe UI",8,"bold")).pack(anchor="w",padx=14,pady=(8,2))
+        self.features=tk.Text(a,bg=WHITE,fg=TEXT,relief="flat",font=("Consolas",9),padx=14,pady=6,state="disabled",height=9)
+        self.features.pack(fill="x",padx=12,pady=(0,8))
+
+        prof_frame=tk.Frame(a,bg="#F8FAFC",highlightbackground=BORDER,highlightthickness=1)
+        prof_frame.pack(fill="both",expand=True,padx=12,pady=(0,12))
+        tk.Label(prof_frame,text="PROGRAM PROFILE (INFORMATIONAL)",bg="#F8FAFC",fg="#4F46E5",font=("Segoe UI",8,"bold")).pack(anchor="w",padx=10,pady=(8,2))
+        self.profile_info=tk.Text(prof_frame,bg="#F8FAFC",fg=TEXT,relief="flat",font=("Consolas",9),padx=8,pady=4,state="disabled",wrap="word")
+        self.profile_info.pack(fill="both",expand=True,padx=6,pady=(0,6))
+        self._update_profile_ui(None)
+
         b=self.section(body,"LLVM IR","Generated intermediate representation"); b.pack(side="left",fill="both",expand=True,padx=(7,0))
         self.ir=tk.Text(b,bg="#FBFCFE",fg="#334155",relief="flat",font=("Consolas",9),padx=12,pady=10,wrap="none"); self.ir.pack(fill="both",expand=True,padx=12,pady=(0,12))
+
+    def _update_profile_ui(self, profile_dict):
+        if not hasattr(self, "profile_info"): return
+        self.profile_info.config(state="normal")
+        self.profile_info.delete("1.0", tk.END)
+        if profile_dict:
+            lbl = profile_dict.get("label", "unknown")
+            dom_f = profile_dict.get("dominant_feature", "None")
+            dom_v = profile_dict.get("dominant_feature_value", 0.0)
+            is_triv = profile_dict.get("is_trivial", False)
+            method = profile_dict.get("profile_method", "ir_heuristic_threshold")
+            v_str = f"{int(dom_v)}" if isinstance(dom_v, (int, float)) and float(dom_v).is_integer() else f"{dom_v}"
+            self.profile_info.insert(tk.END, f"Profile : {lbl}\n")
+            self.profile_info.insert(tk.END, f"Dominant: {dom_f} ({v_str})\n")
+            self.profile_info.insert(tk.END, f"Trivial : {is_triv}\n")
+            self.profile_info.insert(tk.END, f"Method  : {method}\n")
+            self.profile_info.insert(tk.END, "\n* Informational program analysis only — not optimization selection rationale.")
+        else:
+            self.profile_info.insert(tk.END, "Awaiting AI optimization run\n")
+        self.profile_info.config(state="disabled")
 
     def make_opt(self):
         p=self.page("Optimization")
@@ -250,7 +281,20 @@ class CompilerGUI:
             if not strategy: raise RuntimeError("AI failed to select an optimization strategy.")
             self.strategy=strategy; self._log(("AI selected: " if mode=="AI" else "Using baseline: ")+strategy)
             if self.last_trace:
+                try:
+                    self.last_xai = self.last_trace.to_xai_result()
+                except Exception:
+                    self.last_xai = None
                 self._log(f"Decision Trace: {self.last_trace.selection_reason}")
+                if self.last_trace.program_profile:
+                    p = self.last_trace.program_profile
+                    self._log(f"Program Profile: {p.get('label')} (Dominant: {p.get('dominant_feature')}={p.get('dominant_feature_value')})")
+                    self.root.after(0, lambda prof=p: self._update_profile_ui(prof))
+                else:
+                    self.root.after(0, lambda: self._update_profile_ui(None))
+            else:
+                self.last_xai = None
+                self.root.after(0, lambda: self._update_profile_ui(None))
             if not apply_optimization(self.selected_file,ll,strategy): raise RuntimeError("LLVM optimization failed.")
             r=subprocess.run([CLANG_PATH,ll,"-o",exe],capture_output=True,text=True)
             if r.returncode!=0: raise RuntimeError(r.stderr)

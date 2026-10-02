@@ -13,7 +13,7 @@ MODEL_PATH = os.path.join(
 OPT_PATH = r"C:\Users\rithv\Downloads\clang+llvm-23.1.0-x86_64-pc-windows-msvc\clang+llvm-23.1.0-x86_64-pc-windows-msvc\bin\opt.exe"
 
 
-def get_best_optimization(c_file_path, *, return_trace=False):
+def get_best_optimization(c_file_path, *, return_trace=False, return_xai=False):
     env = CompilerEnv(c_file_path)
     state = torch.FloatTensor(env.features)
 
@@ -23,7 +23,11 @@ def get_best_optimization(c_file_path, *, return_trace=False):
         model.load_state_dict(torch.load(MODEL_PATH, weights_only=True))
     else:
         print(f"Error: {MODEL_PATH} not found.")
-        return (None, None) if return_trace else None
+        if return_trace and return_xai:
+            return (None, None, None)
+        if return_trace or return_xai:
+            return (None, None)
+        return None
 
     model.eval()
 
@@ -50,30 +54,62 @@ def get_best_optimization(c_file_path, *, return_trace=False):
         report_data = _load_report_for_trace(c_file_path)
         frontier = list(report_data.get("pareto_frontier", [])) if report_data else []
 
+        raw_feats = env.features.tolist() if hasattr(env.features, "tolist") else list(env.features)
+
         result, trace = moo_aware_select_with_trace(
             c_file_path,
             q_values.tolist(),
             ACTIONS,
             frontier,
             report_data=report_data,
+            ir_features=raw_feats,
         )
         print(f"[MOO-aware selector] {result.reason}")
         if result.filtered_out:
             print(f"[MOO-aware selector] MOO filtered: {result.filtered_out}")
 
         strategy = result.strategy
-        if return_trace:
-            return strategy, trace
-        return strategy
 
     except Exception as _moo_exc:  # noqa: BLE001
         # Fallback: exact original behavior — argmax already computed above.
         print(f"[MOO-aware selector] MOO unavailable ({_moo_exc}); "
               f"using original AI selection.")
-        fallback = ACTIONS[action_idx]
-        if return_trace:
-            return fallback, None
-        return fallback
+        strategy = ACTIONS[action_idx]
+        trace = None
+
+    # --- Informational Post-Processing (Phase 2B) ---
+    # Profiling and XAI are purely informational and MUST NEVER alter `strategy`.
+
+    # 1. Program Profile generation (informational only — does NOT influence selection)
+    if trace is not None:
+        try:
+            from moo.program_profiler import profile_program
+            raw_feats = env.features.tolist() if hasattr(env.features, "tolist") else list(env.features)
+            prof = profile_program(raw_feats)
+            trace.program_profile = prof.to_dict() if prof is not None else None
+        except Exception:
+            trace.program_profile = None
+
+    # 2. XAI result generation (isolated from optimization selection)
+    xai_res = None
+    if trace is not None and return_xai:
+        try:
+            xai_res = trace.to_xai_result()
+        except Exception:
+            xai_res = None
+
+    if return_trace and return_xai:
+        return strategy, trace, xai_res
+    if return_xai:
+        return strategy, xai_res
+    if return_trace:
+        return strategy, trace
+    return strategy
+
+
+def get_best_optimization_with_xai(c_file_path):
+    """Convenience helper returning (strategy, xai_result)."""
+    return get_best_optimization(c_file_path, return_xai=True)
 
 
 def apply_optimization(input_c, output_ll, action):
