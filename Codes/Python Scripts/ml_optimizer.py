@@ -41,11 +41,40 @@ class CompilerEnv:
     def __init__(self, benchmark_path):
         self.benchmark_path = benchmark_path
         self.ir_path = "temp_unopt.ll"
-        self.generate_unoptimized_ir()
-        self.features = self.extract_features(self.ir_path)
+        success = self.generate_unoptimized_ir()
+        if success and os.path.exists(self.ir_path):
+            self.features = self.extract_features(self.ir_path)
+        else:
+            self.features = np.zeros(8, dtype=np.float32)
         
     def generate_unoptimized_ir(self):
-        subprocess.run([CLANG_PATH, "-O0", "-Xclang", "-disable-O0-optnone", "-S", "-emit-llvm", self.benchmark_path, "-o", self.ir_path], capture_output=True)
+        # Invalidate/remove pre-existing artifact before compilation to avoid stale reuse
+        if os.path.exists(self.ir_path):
+            try:
+                os.remove(self.ir_path)
+            except OSError:
+                pass
+        try:
+            result = subprocess.run(
+                [CLANG_PATH, "-O0", "-Xclang", "-disable-O0-optnone", "-S", "-emit-llvm", self.benchmark_path, "-o", self.ir_path],
+                capture_output=True
+            )
+            # Check clang return code
+            if result.returncode != 0:
+                if os.path.exists(self.ir_path):
+                    try:
+                        os.remove(self.ir_path)
+                    except OSError:
+                        pass
+                return False
+            return os.path.exists(self.ir_path)
+        except Exception:
+            if os.path.exists(self.ir_path):
+                try:
+                    os.remove(self.ir_path)
+                except OSError:
+                    pass
+            return False
 
     def extract_features(self, ir_file):
         # Using a simplified version of the existing feature extractor
