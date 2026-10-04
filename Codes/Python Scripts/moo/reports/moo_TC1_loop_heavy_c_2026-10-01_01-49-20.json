@@ -1,6 +1,8 @@
 {
+  "schema_version": "moo.report.1.0",
   "source_file": "TC1_loop_heavy.c",
   "source_path": "C:\\Users\\rithv\\Desktop\\New folder\\TOACD\\compiler-optimization-selector-main\\compiler-optimization-selector-main\\Codes\\test_cases\\TC1_loop_heavy.c",
+  "source_sha256": "b7de5079045120dab3b03d1a2cba1506ac30da995f9046c329ba31b2fac9a027",
   "timestamp": "2026-10-01T01:49:20",
   "toolchain_ok": true,
   "toolchain_notes": [],

@@ -1,6 +1,8 @@
 {
+  "schema_version": "moo.report.1.0",
   "source_file": "security_checks.c",
   "source_path": "C:\\Users\\rithv\\Desktop\\New folder\\TOACD\\compiler-optimization-selector-main\\compiler-optimization-selector-main\\Codes\\test_cases\\security_checks.c",
+  "source_sha256": "146b5895ff455b1c1d6948f59d5186ba5fd0f10e182df46f182fd1176ef13750",
   "timestamp": "2026-10-01T01:49:28",
   "toolchain_ok": true,
   "toolchain_notes": [],

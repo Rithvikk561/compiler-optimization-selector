@@ -142,12 +142,31 @@ def _find_latest_moo_report(source_path: str, report_dir: Optional[str] = None) 
     return candidates[0][1]
 
 
-def _load_moo_report(json_path: str) -> Optional[dict]:
+def _compute_source_sha256(source_path: str) -> Optional[str]:
+    """Compute SHA-256 hex digest of a source file if it exists."""
+    if not source_path or not os.path.isfile(source_path):
+        return None
+    try:
+        import hashlib
+        h = hashlib.sha256()
+        with open(source_path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except Exception:
+        return None
+
+
+def _load_moo_report(
+    json_path: str,
+    expected_source_path: Optional[str] = None,
+    require_valid_cache: bool = True,
+) -> Optional[dict]:
     """
     Load and parse a moo_*.json file.
 
-    Returns the dict on success, None on any parse/IO error.
-    Validates that the required keys exist.
+    Returns the dict on success, None on any parse/IO or cache-validity error.
+    Validates required keys, schema_version, and source_sha256 when require_valid_cache=True.
     """
     try:
         with open(json_path, "r", encoding="utf-8") as f:
@@ -166,6 +185,39 @@ def _load_moo_report(json_path: str) -> Optional[dict]:
             )
             return None
 
+    if require_valid_cache and expected_source_path:
+        source_exists = os.path.isfile(expected_source_path)
+        schema_ver = data.get("schema_version")
+        rep_sha = data.get("source_sha256")
+
+        if source_exists:
+            # If the source file exists on disk, strictly require valid cache metadata
+            if not schema_ver or not rep_sha:
+                logger.warning(
+                    "selector_bridge: report %s for existing file %s predates cache validation metadata; treating as unverified/stale.",
+                    json_path, expected_source_path,
+                )
+                return None
+
+        # 1. Directory path collision check
+        rep_path = data.get("source_path")
+        if rep_path and os.path.isabs(rep_path) and os.path.isabs(expected_source_path):
+            if os.path.normcase(os.path.abspath(rep_path)) != os.path.normcase(os.path.abspath(expected_source_path)):
+                logger.warning(
+                    "selector_bridge: report %s source_path %r does not match expected %r (directory collision); rejecting.",
+                    json_path, rep_path, expected_source_path,
+                )
+                return None
+
+        # 2. Source file content hash verification
+        current_sha = _compute_source_sha256(expected_source_path)
+        if current_sha and rep_sha and rep_sha != current_sha:
+            logger.warning(
+                "selector_bridge: report %s source_sha256 %r does not match current source file %r (%r); rejecting stale cache.",
+                json_path, rep_sha, expected_source_path, current_sha,
+            )
+            return None
+
     return data
 
 
@@ -181,7 +233,7 @@ def _load_report_for_trace(
     json_path = _find_latest_moo_report(source_path, report_dir)
     if json_path is None:
         return None
-    data = _load_moo_report(json_path)
+    data = _load_moo_report(json_path, expected_source_path=source_path)
     if data is None:
         return None
     if data.get("pipeline_error"):
@@ -227,7 +279,7 @@ def get_pareto_frontier_for(
         json_path = _find_latest_moo_report(source_path, report_dir)
 
         if json_path is not None:
-            data = _load_moo_report(json_path)
+            data = _load_moo_report(json_path, expected_source_path=source_path)
             if data is not None:
                 if data.get("pipeline_error"):
                     logger.warning(

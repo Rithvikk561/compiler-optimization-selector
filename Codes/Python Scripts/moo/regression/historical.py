@@ -3,6 +3,7 @@ moo/regression/historical.py — Historical run-to-run benchmark regression comp
 
 Compares benchmark outputs across different runs (e.g. earlier git commit vs current,
 or baseline test suite vs regression test suite) using Week 9 structured ProgramRecords.
+Enforces source identity guards (SHA-256) and environment compatibility guards.
 """
 
 from __future__ import annotations
@@ -45,29 +46,69 @@ def _index_records_by_id(records: Sequence[Any]) -> tuple[dict[str, Any], Option
     return index, inferred_run_id
 
 
+def _get_record_sha(d: dict[str, Any]) -> Optional[str]:
+    """Extract source SHA-256 from record or corpus_entry."""
+    ce = d.get("corpus_entry")
+    if isinstance(ce, dict) and ce.get("source_sha256"):
+        return str(ce.get("source_sha256"))
+    if d.get("source_sha256"):
+        return str(d.get("source_sha256"))
+    return None
+
+
+def _check_environment_compatibility(
+    prev_manifest: Optional[dict[str, Any]],
+    curr_manifest: Optional[dict[str, Any]],
+) -> tuple[bool, list[str]]:
+    """Verify toolchain and platform compatibility between benchmark runs."""
+    if not prev_manifest or not curr_manifest:
+        return True, []
+
+    mismatches: list[str] = []
+
+    # Platform check
+    prev_plat = prev_manifest.get("platform", {})
+    curr_plat = curr_manifest.get("platform", {})
+    if prev_plat.get("system") and curr_plat.get("system"):
+        if prev_plat.get("system") != curr_plat.get("system"):
+            mismatches.append(
+                f"Platform mismatch: previous '{prev_plat.get('system')}' vs current '{curr_plat.get('system')}'"
+            )
+
+    # Toolchain check
+    prev_tool = prev_manifest.get("toolchain", {}) or {}
+    curr_tool = curr_manifest.get("toolchain", {}) or {}
+    if prev_tool.get("clang_version") and curr_tool.get("clang_version"):
+        if prev_tool.get("clang_version") != curr_tool.get("clang_version"):
+            mismatches.append(
+                f"Toolchain mismatch: clang '{prev_tool.get('clang_version')}' vs '{curr_tool.get('clang_version')}'"
+            )
+
+    # Measurement configuration check
+    for cfg_key in ("warmup_runs", "measure_runs"):
+        if cfg_key in prev_manifest and cfg_key in curr_manifest:
+            if prev_manifest[cfg_key] != curr_manifest[cfg_key]:
+                mismatches.append(
+                    f"Measurement config mismatch for {cfg_key}: {prev_manifest[cfg_key]} vs {curr_manifest[cfg_key]}"
+                )
+
+    return len(mismatches) == 0, mismatches
+
+
 def compare_historical_runs(
     previous_records: Sequence[Any],
     current_records: Sequence[Any],
     previous_run_id: Optional[str] = None,
     current_run_id: Optional[str] = None,
     strategy_to_compare: str = "baseline (-O0)",
+    previous_manifest: Optional[dict[str, Any]] = None,
+    current_manifest: Optional[dict[str, Any]] = None,
     thresholds: Optional[RegressionThresholds] = None,
+    strict_env: bool = True,
 ) -> HistoricalComparison:
     """
-    Compare two historical benchmark runs program by program.
-
-    Parameters
-    ----------
-    previous_records    : sequence of ProgramRecord objects/dicts from historical run
-    current_records     : sequence of ProgramRecord objects/dicts from current run
-    previous_run_id     : identifier for previous run (inferred if None)
-    current_run_id      : identifier for current run (inferred if None)
-    strategy_to_compare : primary strategy to track across runs (default: 'baseline (-O0)')
-    thresholds          : RegressionThresholds or None for defaults
-
-    Returns
-    -------
-    HistoricalComparison containing per-program deltas and suite summary.
+    Compare two historical benchmark runs program by program with source identity
+    and environment compatibility guards.
     """
     thresh = thresholds if thresholds is not None else DEFAULT_THRESHOLDS
 
@@ -77,6 +118,8 @@ def compare_historical_runs(
     p_run = previous_run_id or prev_inferred or "previous_run"
     c_run = current_run_id or curr_inferred or "current_run"
 
+    env_compatible, env_notes = _check_environment_compatibility(previous_manifest, current_manifest)
+
     all_pids = sorted(set(list(prev_map.keys()) + list(curr_map.keys())))
 
     progs: dict[str, HistoricalProgramComparison] = {}
@@ -85,10 +128,13 @@ def compare_historical_runs(
     n_missing_curr = 0
     n_failed_prev = 0
     n_failed_curr = 0
+    n_source_mismatch = 0
+    n_env_incompatible = 0
     n_improved = 0
     n_regressed = 0
     n_mixed = 0
     n_unchanged = 0
+    n_inconclusive = 0
 
     for pid in all_pids:
         prev_d = prev_map.get(pid)
@@ -123,6 +169,39 @@ def compare_historical_runs(
         # 3. Present in both
         n_common += 1
 
+        # Check environment compatibility guard
+        if strict_env and not env_compatible:
+            n_env_incompatible += 1
+            progs[pid] = HistoricalProgramComparison(
+                program_id=pid,
+                status="environment_incompatible",
+                previous_run_id=p_run,
+                current_run_id=c_run,
+                environment_compatible=False,
+                overall_status=OverallStatus.INCOMPARABLE,
+                notes=list(env_notes),
+            )
+            continue
+
+        # Check source hash identity guard
+        prev_sha = _get_record_sha(prev_d)
+        curr_sha = _get_record_sha(curr_d)
+        if prev_sha and curr_sha and prev_sha != curr_sha:
+            n_source_mismatch += 1
+            progs[pid] = HistoricalProgramComparison(
+                program_id=pid,
+                status="source_mismatch",
+                previous_run_id=p_run,
+                current_run_id=c_run,
+                source_sha256=curr_sha,
+                overall_status=OverallStatus.INCOMPARABLE,
+                notes=[
+                    f"Source SHA-256 mismatch (previous: '{prev_sha[:8]}...', current: '{curr_sha[:8]}...'); "
+                    f"source code changed between runs; deltas not fabricated."
+                ],
+            )
+            continue
+
         # Check failures
         prev_status = prev_d.get("status", "ok")
         curr_status = curr_d.get("status", "ok")
@@ -136,6 +215,7 @@ def compare_historical_runs(
                 status="failed_previous",
                 previous_run_id=p_run,
                 current_run_id=c_run,
+                source_sha256=curr_sha or prev_sha,
                 overall_status=OverallStatus.INCOMPARABLE,
                 notes=[f"Previous run failed: {prev_err or 'baseline unavailable'}"],
             )
@@ -148,34 +228,42 @@ def compare_historical_runs(
                 status="failed_current",
                 previous_run_id=p_run,
                 current_run_id=c_run,
+                source_sha256=curr_sha or prev_sha,
                 overall_status=OverallStatus.INCOMPARABLE,
                 notes=[f"Current run failed: {curr_err or 'baseline unavailable'}"],
             )
             continue
 
         # Both succeeded: extract metric comparison for strategy_to_compare
-        # Reference is previous run value; target is current run value.
-        def _get_strat_metrics(d: dict, strat: str) -> dict[str, Optional[float]]:
-            if strat == "baseline (-O0)" or strat == "-O0_baseline":
-                return extract_metrics_from_baseline(d.get("baseline"))
-            # Search candidates
+        def _get_strat_data(d: dict, strat: str) -> Any:
+            if strat.startswith("baseline"):
+                return d.get("baseline")
             cands = d.get("candidates") or []
             for c in cands:
                 name = c.get("strategy_name") if isinstance(c, dict) else getattr(c, "strategy_name", "")
                 if name == strat:
-                    return extract_metrics_from_candidate(c)
-            return {}
+                    return c
+            return None
 
-        prev_metrics = _get_strat_metrics(prev_d, strategy_to_compare)
-        curr_metrics = _get_strat_metrics(curr_d, strategy_to_compare)
+        prev_strat_data = _get_strat_data(prev_d, strategy_to_compare)
+        curr_strat_data = _get_strat_data(curr_d, strategy_to_compare)
 
-        all_m = sorted(set(list(prev_metrics.keys()) + list(curr_metrics.keys())))
+        prev_em = extract_metrics_from_baseline(prev_strat_data) if strategy_to_compare.startswith("baseline") else extract_metrics_from_candidate(prev_strat_data)
+        curr_em = extract_metrics_from_baseline(curr_strat_data) if strategy_to_compare.startswith("baseline") else extract_metrics_from_candidate(curr_strat_data)
+
+        all_m = sorted(set(list(prev_em.metrics.keys()) + list(curr_em.metrics.keys())))
         m_comps: dict[str, MetricComparison] = {}
         for mname in all_m:
             lower_is_better, unit = KNOWN_METRIC_SPECS.get(mname, (True, ""))
-            p_val = prev_metrics.get(mname)
-            c_val = curr_metrics.get(mname)
+            p_val = prev_em.metrics.get(mname)
+            c_val = curr_em.metrics.get(mname)
             th_pct = thresh.get_threshold(mname)
+
+            is_est = False
+            if mname == "energy":
+                is_est = prev_em.energy_is_estimated or curr_em.energy_is_estimated
+            elif mname == "carbon":
+                is_est = prev_em.carbon_is_estimated or curr_em.carbon_is_estimated
 
             mc = detect_metric_change(
                 metric_name=mname,
@@ -184,6 +272,11 @@ def compare_historical_runs(
                 lower_is_better=lower_is_better,
                 unit=unit,
                 threshold_pct=th_pct,
+                baseline_is_reliable=prev_em.timing_is_reliable,
+                target_is_reliable=curr_em.timing_is_reliable,
+                baseline_cv=prev_em.timing_cv,
+                target_cv=curr_em.timing_cv,
+                is_estimated=is_est,
             )
             m_comps[mname] = mc
 
@@ -196,6 +289,8 @@ def compare_historical_runs(
             n_mixed += 1
         elif overall == OverallStatus.UNCHANGED:
             n_unchanged += 1
+        elif overall == OverallStatus.INCONCLUSIVE:
+            n_inconclusive += 1
 
         # Also extract per-strategy comparisons for common candidate strategies
         strat_historical: dict[str, dict[str, MetricComparison]] = {}
@@ -211,19 +306,23 @@ def compare_historical_runs(
         for sname in common_strats:
             if not sname:
                 continue
-            s_prev_m = extract_metrics_from_candidate(prev_cands[sname])
-            s_curr_m = extract_metrics_from_candidate(curr_cands[sname])
+            s_prev_em = extract_metrics_from_candidate(prev_cands[sname])
+            s_curr_em = extract_metrics_from_candidate(curr_cands[sname])
             s_metrics_dict: dict[str, MetricComparison] = {}
-            for mname in sorted(set(list(s_prev_m.keys()) + list(s_curr_m.keys()))):
+            for mname in sorted(set(list(s_prev_em.metrics.keys()) + list(s_curr_em.metrics.keys()))):
                 lower_is_better, unit = KNOWN_METRIC_SPECS.get(mname, (True, ""))
                 th_pct = thresh.get_threshold(mname)
                 s_metrics_dict[mname] = detect_metric_change(
                     metric_name=mname,
-                    baseline_val=s_prev_m.get(mname),
-                    target_val=s_curr_m.get(mname),
+                    baseline_val=s_prev_em.metrics.get(mname),
+                    target_val=s_curr_em.metrics.get(mname),
                     lower_is_better=lower_is_better,
                     unit=unit,
                     threshold_pct=th_pct,
+                    baseline_is_reliable=s_prev_em.timing_is_reliable,
+                    target_is_reliable=s_curr_em.timing_is_reliable,
+                    baseline_cv=s_prev_em.timing_cv,
+                    target_cv=s_curr_em.timing_cv,
                 )
             strat_historical[sname] = s_metrics_dict
 
@@ -232,6 +331,8 @@ def compare_historical_runs(
             status="ok",
             previous_run_id=p_run,
             current_run_id=c_run,
+            source_sha256=curr_sha or prev_sha,
+            environment_compatible=True,
             metric_comparisons=m_comps,
             strategy_historical=strat_historical,
             overall_status=overall,
@@ -245,10 +346,13 @@ def compare_historical_runs(
         "n_missing_current": n_missing_curr,
         "n_failed_previous": n_failed_prev,
         "n_failed_current": n_failed_curr,
+        "n_source_mismatch": n_source_mismatch,
+        "n_env_incompatible": n_env_incompatible,
         "n_improved": n_improved,
         "n_regressed": n_regressed,
         "n_mixed": n_mixed,
         "n_unchanged": n_unchanged,
+        "n_inconclusive": n_inconclusive,
     }
 
     return HistoricalComparison(

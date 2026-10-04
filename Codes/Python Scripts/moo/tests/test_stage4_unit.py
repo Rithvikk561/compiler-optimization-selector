@@ -94,6 +94,7 @@ def _make_moo_report_dict(
     frontier: list[str],
     dominated: list[str],
     pipeline_error: str | None = None,
+    source_sha256: str | None = None,
 ) -> dict:
     """Build a minimal valid moo_*.json dict."""
     candidates = []
@@ -119,6 +120,8 @@ def _make_moo_report_dict(
             "dominated_by": [],
         })
     return {
+        "schema_version": "moo.report.1.0",
+        "source_sha256": source_sha256,
         "source_file": source_file,
         "source_path": f"/test/{source_file}",
         "timestamp": "2026-10-01T00:00:00",
@@ -284,14 +287,20 @@ def u12_valid_report_returns_frontier():
     tid, name = "U12", "get_pareto_frontier_for: valid report → frontier list"
     tmpdir = tempfile.mkdtemp()
     try:
+        source_path = os.path.join(tmpdir, "test.c")
+        with open(source_path, "w", encoding="utf-8") as f:
+            f.write("int main() { return 0; }\n")
+        import hashlib
+        sha = hashlib.sha256(open(source_path, "rb").read()).hexdigest()
         data = _make_moo_report_dict(
             "test.c",
             frontier=["-O1", "-O3"],
             dominated=["-O0", "-O2"],
+            source_sha256=sha,
         )
         _write_report(tmpdir, "test.c", data)
         result = get_pareto_frontier_for(
-            os.path.join(tmpdir, "test.c"),
+            source_path,
             report_dir=tmpdir,
         )
         ok = sorted(result) == sorted(["-O1", "-O3"])
@@ -304,15 +313,21 @@ def u13_pipeline_error_in_report():
     tid, name = "U13", "get_pareto_frontier_for: report with pipeline_error → []"
     tmpdir = tempfile.mkdtemp()
     try:
+        source_path = os.path.join(tmpdir, "test.c")
+        with open(source_path, "w", encoding="utf-8") as f:
+            f.write("int main() { return 0; }\n")
+        import hashlib
+        sha = hashlib.sha256(open(source_path, "rb").read()).hexdigest()
         data = _make_moo_report_dict(
             "test.c",
             frontier=[],
             dominated=[],
             pipeline_error="Reference build failed: compiler not found",
+            source_sha256=sha,
         )
         _write_report(tmpdir, "test.c", data)
         result = get_pareto_frontier_for(
-            os.path.join(tmpdir, "test.c"),
+            source_path,
             report_dir=tmpdir,
         )
         ok = result == []

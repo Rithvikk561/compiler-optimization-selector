@@ -833,9 +833,9 @@ def test_det1_comparison_determinism_50_runs():
     try:
         from moo.regression.comparator import compare_program
         rec = _make_mock_record()
-        ref = compare_program(rec)
+        ref = compare_program(rec, selected_strategy="-O2")
         for _ in range(50):
-            cur = compare_program(rec)
+            cur = compare_program(rec, selected_strategy="-O2")
             assert cur.overall_status == ref.overall_status
             assert cur.selected_strategy == ref.selected_strategy
             for m, mc in ref.selected_comparison.metric_comparisons.items():
@@ -1022,10 +1022,496 @@ def test_scope5_week9_bench_outputs_reused():
             ],
             pareto_frontier=["-O2"],
         )
-        pcomp = compare_program(rec)
+        pcomp = compare_program(rec, selected_strategy="-O2")
         assert pcomp.program_id == "test_bench"
         assert pcomp.selected_strategy == "-O2"
         report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+# ===========================================================================
+# W10-PROV: Selection Provenance Enforcement
+# ===========================================================================
+
+def test_prov1_valid_selection_record_accepted():
+    """Explicit SelectionRecord is accepted and provenance is attached to ProgramComparison."""
+    tid, name = "W10-PROV1", "Explicit SelectionRecord attached to ProgramComparison"
+    try:
+        from moo.regression.comparator import compare_program
+        from moo.regression.schema import SelectionRecord
+        rec = _make_mock_record("p1")
+        rec["source_sha256"] = "a" * 64
+        sr = SelectionRecord(
+            program_id="p1",
+            source_sha256="a" * 64,
+            selected_strategy="-O2",
+            selection_source="ml_optimizer",
+            model_identifier="q_learning_v1",
+            trace_id="trace_001",
+        )
+        pcomp = compare_program(rec, selection_record=sr)
+        assert pcomp.selected_strategy == "-O2"
+        assert pcomp.selection_provenance is not None
+        assert pcomp.selection_provenance.model_identifier == "q_learning_v1"
+        assert pcomp.selection_provenance.trace_id == "trace_001"
+        report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+def test_prov2_missing_selection_refuses_fabrication():
+    """When no selection is provided, comparator refuses to fabricate an AI selection."""
+    tid, name = "W10-PROV2", "Omitting selection refuses to fabricate AI choice"
+    try:
+        from moo.regression.comparator import compare_program
+        from moo.regression.schema import OverallStatus
+        rec = _make_mock_record("p1")
+        pcomp = compare_program(rec)
+        assert pcomp.selected_strategy is None
+        assert pcomp.selected_comparison is None
+        assert pcomp.selection_provenance is None
+        assert pcomp.overall_status == OverallStatus.INCOMPARABLE
+        report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+def test_prov3_mismatched_source_sha256_rejected():
+    """SelectionRecord with mismatched source_sha256 raises ValueError."""
+    tid, name = "W10-PROV3", "SelectionRecord with mismatched source_sha256 rejected"
+    try:
+        from moo.regression.comparator import compare_program
+        from moo.regression.schema import SelectionRecord
+        rec = _make_mock_record("p1")
+        rec["source_sha256"] = "a" * 64
+        sr = SelectionRecord(
+            program_id="p1",
+            source_sha256="b" * 64,
+            selected_strategy="-O2",
+            selection_source="ml_optimizer",
+        )
+        rejected = False
+        try:
+            compare_program(rec, selection_record=sr)
+        except ValueError:
+            rejected = True
+        assert rejected, "Expected ValueError on mismatched source_sha256"
+        report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+def test_prov4_mismatched_program_id_rejected():
+    """SelectionRecord with mismatched program_id raises ValueError."""
+    tid, name = "W10-PROV4", "SelectionRecord with mismatched program_id rejected"
+    try:
+        from moo.regression.comparator import compare_program
+        from moo.regression.schema import SelectionRecord
+        rec = _make_mock_record("prog_A")
+        sr = SelectionRecord(
+            program_id="prog_B",
+            source_sha256="a" * 64,
+            selected_strategy="-O2",
+            selection_source="ml_optimizer",
+        )
+        rejected = False
+        try:
+            compare_program(rec, selection_record=sr)
+        except ValueError:
+            rejected = True
+        assert rejected, "Expected ValueError on mismatched program_id"
+        report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+def test_prov5_selection_record_roundtrip():
+    """SelectionRecord to_dict/from_dict round-trip preserves all fields."""
+    tid, name = "W10-PROV5", "SelectionRecord to_dict/from_dict round-trip"
+    try:
+        from moo.regression.schema import SelectionRecord
+        sr = SelectionRecord(
+            program_id="test_p",
+            source_sha256="1234567890abcdef" * 4,
+            selected_strategy="-O3",
+            selection_source="ml_optimizer",
+            model_identifier="ppo_v2",
+            trace_id="tr_42",
+            timestamp="2026-10-04T12:00:00",
+        )
+        d = sr.to_dict()
+        sr2 = SelectionRecord.from_dict(d)
+        assert sr2.program_id == sr.program_id
+        assert sr2.source_sha256 == sr.source_sha256
+        assert sr2.selected_strategy == sr.selected_strategy
+        assert sr2.selection_source == sr.selection_source
+        assert sr2.model_identifier == sr.model_identifier
+        assert sr2.trace_id == sr.trace_id
+        assert sr2.timestamp == sr.timestamp
+        report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+# ===========================================================================
+# W10-NOISE: Noise-Aware Regression & Measurement Reliability
+# ===========================================================================
+
+def test_noise1_unreliable_timing_yields_inconclusive():
+    """When timing is marked unreliable, execution_time change is INCONCLUSIVE."""
+    tid, name = "W10-NOISE1", "Unreliable timing yields INCONCLUSIVE status"
+    try:
+        from moo.regression.detector import detect_metric_change
+        from moo.regression.schema import ComparisonStatus
+        mc = detect_metric_change(
+            "execution_time",
+            baseline_val=0.100,
+            target_val=0.080,
+            target_is_reliable=False,
+            target_cv=0.15,
+        )
+        assert mc.status == ComparisonStatus.INCONCLUSIVE
+        assert mc.is_reliable is False
+        assert "unreliable" in mc.reason
+        report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+def test_noise2_delta_within_cv_envelope_yields_inconclusive():
+    """When percentage delta is within CV noise band, change is INCONCLUSIVE."""
+    tid, name = "W10-NOISE2", "Delta within CV noise band yields INCONCLUSIVE"
+    try:
+        from moo.regression.detector import detect_metric_change
+        from moo.regression.schema import ComparisonStatus
+        mc = detect_metric_change(
+            "execution_time",
+            baseline_val=0.100,
+            target_val=0.097,
+            baseline_cv=0.05,
+            target_cv=0.05,
+            baseline_is_reliable=True,
+            target_is_reliable=True,
+        )
+        assert mc.status == ComparisonStatus.INCONCLUSIVE
+        assert "noise" in mc.reason or "inconclusive" in mc.reason
+        report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+def test_noise3_control_identical_inputs_strictly_unchanged():
+    """Identical control inputs strictly evaluate as UNCHANGED."""
+    tid, name = "W10-NOISE3", "Identical control inputs strictly evaluate as UNCHANGED"
+    try:
+        from moo.regression.detector import detect_metric_change
+        from moo.regression.schema import ComparisonStatus
+        mc = detect_metric_change(
+            "execution_time",
+            baseline_val=0.100,
+            target_val=0.100,
+            baseline_cv=0.02,
+            target_cv=0.02,
+        )
+        assert mc.status == ComparisonStatus.UNCHANGED
+        assert mc.delta == 0.0
+        assert mc.percent_change == 0.0
+        report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+def test_noise4_low_noise_confident_classification():
+    """High delta with low CV noise is reliably classified as IMPROVED."""
+    tid, name = "W10-NOISE4", "High delta with low noise is classified as IMPROVED"
+    try:
+        from moo.regression.detector import detect_metric_change
+        from moo.regression.schema import ComparisonStatus
+        mc = detect_metric_change(
+            "execution_time",
+            baseline_val=0.100,
+            target_val=0.075,
+            baseline_cv=0.01,
+            target_cv=0.01,
+            baseline_is_reliable=True,
+            target_is_reliable=True,
+        )
+        assert mc.status == ComparisonStatus.IMPROVED
+        assert mc.is_reliable is True
+        assert mc.confidence.upper() == "HIGH"
+        report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+# ===========================================================================
+# W10-DERIV: Derived Signals & Metric Families
+# ===========================================================================
+
+def test_deriv1_signal_family_grouping():
+    """Metrics are categorized into canonical families."""
+    tid, name = "W10-DERIV1", "Metrics mapped to canonical families"
+    try:
+        from moo.regression.detector import METRIC_SIGNAL_FAMILIES
+        assert METRIC_SIGNAL_FAMILIES.get("execution_time") == "performance"
+        assert METRIC_SIGNAL_FAMILIES.get("code_size") == "size"
+        assert METRIC_SIGNAL_FAMILIES.get("security_sink_calls") == "security"
+        assert METRIC_SIGNAL_FAMILIES.get("energy") == "performance"
+        assert METRIC_SIGNAL_FAMILIES.get("carbon") == "performance"
+        report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+def test_deriv2_family_status_aggregation():
+    """StrategyComparison populates family_comparisons and family_status."""
+    tid, name = "W10-DERIV2", "Family comparisons aggregated correctly"
+    try:
+        from moo.regression.comparator import compare_strategies
+        from moo.regression.schema import OverallStatus
+        m_base = {
+            "measurement": {
+                "timing": {"median_s": 0.100},
+                "code_size": {"primary_value": 1000},
+            }
+        }
+        m_target = {
+            "measurement": {
+                "timing": {"median_s": 0.080},
+                "code_size": {"primary_value": 900},
+            }
+        }
+        sc = compare_strategies(
+            reference_data=m_base,
+            target_data=m_target,
+            target_strategy_name="-O2",
+            reference_strategy_name="baseline (-O0)",
+        )
+        assert "performance" in sc.family_comparisons
+        assert "size" in sc.family_comparisons
+        assert sc.family_status.get("performance") == OverallStatus.IMPROVED
+        assert sc.family_status.get("size") == OverallStatus.IMPROVED
+        report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+def test_deriv3_derived_relationships_documented():
+    """Energy and carbon are documented as derived from execution_time."""
+    tid, name = "W10-DERIV3", "Derived relationships documented"
+    try:
+        from moo.regression.detector import DERIVED_METRIC_RELATIONSHIPS
+        assert "elapsed_time" in DERIVED_METRIC_RELATIONSHIPS.get("energy", "")
+        assert "energy" in DERIVED_METRIC_RELATIONSHIPS.get("carbon", "")
+        report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+# ===========================================================================
+# W10-HGUARD: Historical Comparison Guards & Compatibility
+# ===========================================================================
+
+def test_hguard1_matching_source_hash_comparable():
+    """Matching source_sha256 allows historical comparison."""
+    tid, name = "W10-HGUARD1", "Matching source_sha256 allows historical comparison"
+    try:
+        from moo.regression.historical import compare_historical_runs
+        sha = "c" * 64
+        rec1 = _make_mock_record("p1")
+        rec1["source_sha256"] = sha
+        rec2 = _make_mock_record("p1")
+        rec2["source_sha256"] = sha
+        hcomp = compare_historical_runs([rec1], [rec2], "run1", "run2")
+        pcomp = hcomp.programs["p1"]
+        assert pcomp.status == "ok"
+        assert pcomp.environment_compatible is True
+        report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+def test_hguard2_mismatched_source_hash_incomparable():
+    """Mismatched source_sha256 marks historical program INCOMPARABLE."""
+    tid, name = "W10-HGUARD2", "Mismatched source_sha256 produces source_mismatch"
+    try:
+        from moo.regression.historical import compare_historical_runs
+        from moo.regression.schema import OverallStatus
+        rec1 = _make_mock_record("p1")
+        rec1["source_sha256"] = "1" * 64
+        rec2 = _make_mock_record("p1")
+        rec2["source_sha256"] = "2" * 64
+        hcomp = compare_historical_runs([rec1], [rec2], "run1", "run2")
+        pcomp = hcomp.programs["p1"]
+        assert pcomp.status == "source_mismatch"
+        assert pcomp.overall_status == OverallStatus.INCOMPARABLE
+        report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+def test_hguard3_incompatible_environment_detected():
+    """Mismatched toolchain or platform marks environment_compatible False."""
+    tid, name = "W10-HGUARD3", "Environment mismatch flagged in historical comparison"
+    try:
+        from moo.regression.historical import compare_historical_runs
+        sha = "d" * 64
+        rec1 = _make_mock_record("p1")
+        rec1["source_sha256"] = sha
+        rec2 = _make_mock_record("p1")
+        rec2["source_sha256"] = sha
+        prev_manifest = {"toolchain": {"clang_version": "17.0.1"}}
+        curr_manifest = {"toolchain": {"clang_version": "18.1.0"}}
+        hcomp = compare_historical_runs(
+            [rec1], [rec2], "run1", "run2",
+            previous_manifest=prev_manifest,
+            current_manifest=curr_manifest,
+        )
+        pcomp = hcomp.programs["p1"]
+        assert pcomp.environment_compatible is False
+        report(tid, name, True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+# ===========================================================================
+# W10-CACHE: MOO Cache Validity & Collision Prevention
+# ===========================================================================
+
+def test_cache1_valid_report_with_matching_sha_loaded():
+    """Valid MOO report with matching source_sha256 is loaded by selector_bridge."""
+    tid, name = "W10-CACHE1", "Valid report with matching source_sha256 loaded"
+    try:
+        from moo.selector_bridge import get_pareto_frontier_for
+        import hashlib
+        tmpdir = tempfile.mkdtemp()
+        try:
+            src = os.path.join(tmpdir, "test_cache.c")
+            with open(src, "w", encoding="utf-8") as f:
+                f.write("int main() { return 0; }\n")
+            sha = hashlib.sha256(open(src, "rb").read()).hexdigest()
+            rep_data = {
+                "schema_version": "moo.report.1.0",
+                "source_file": "test_cache.c",
+                "source_path": src,
+                "source_sha256": sha,
+                "pareto_frontier": ["-O2", "-O3"],
+                "pareto_dominated": [],
+                "pareto_invalid": [],
+                "candidates": [],
+                "pipeline_error": None,
+            }
+            with open(os.path.join(tmpdir, "moo_test_cache_c_2026-10-04_12-00-00.json"), "w") as f:
+                json.dump(rep_data, f)
+            frontier = get_pareto_frontier_for(src, report_dir=tmpdir)
+            assert frontier == ["-O2", "-O3"]
+            report(tid, name, True)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+def test_cache2_mismatched_source_hash_rejected():
+    """Report with mismatched source_sha256 is rejected by selector_bridge."""
+    tid, name = "W10-CACHE2", "Report with mismatched source_sha256 rejected"
+    try:
+        from moo.selector_bridge import get_pareto_frontier_for
+        tmpdir = tempfile.mkdtemp()
+        try:
+            src = os.path.join(tmpdir, "test_cache.c")
+            with open(src, "w", encoding="utf-8") as f:
+                f.write("int main() { return 1; }\n")
+            rep_data = {
+                "schema_version": "moo.report.1.0",
+                "source_file": "test_cache.c",
+                "source_path": src,
+                "source_sha256": "wrong_hash" * 4,
+                "pareto_frontier": ["-O2"],
+                "pareto_dominated": [],
+                "pareto_invalid": [],
+                "candidates": [],
+                "pipeline_error": None,
+            }
+            with open(os.path.join(tmpdir, "moo_test_cache_c_2026-10-04_12-00-00.json"), "w") as f:
+                json.dump(rep_data, f)
+            frontier = get_pareto_frontier_for(src, report_dir=tmpdir)
+            assert frontier == [], "Mismatched hash must return empty frontier"
+            report(tid, name, True)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+def test_cache3_legacy_unverified_report_rejected():
+    """Legacy report lacking schema_version or source_sha256 is rejected as unverified."""
+    tid, name = "W10-CACHE3", "Legacy report lacking validation metadata rejected"
+    try:
+        from moo.selector_bridge import get_pareto_frontier_for
+        tmpdir = tempfile.mkdtemp()
+        try:
+            src = os.path.join(tmpdir, "test_cache.c")
+            with open(src, "w", encoding="utf-8") as f:
+                f.write("int main() { return 2; }\n")
+            rep_data = {
+                "source_file": "test_cache.c",
+                "source_path": src,
+                "pareto_frontier": ["-O2"],
+                "pareto_dominated": [],
+                "pareto_invalid": [],
+                "candidates": [],
+                "pipeline_error": None,
+            }
+            with open(os.path.join(tmpdir, "moo_test_cache_c_2026-10-04_12-00-00.json"), "w") as f:
+                json.dump(rep_data, f)
+            frontier = get_pareto_frontier_for(src, report_dir=tmpdir)
+            assert frontier == [], "Legacy unverified report must return empty frontier"
+            report(tid, name, True)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    except Exception as exc:
+        fail(tid, name, exc)
+
+
+def test_cache4_directory_path_collision_prevented():
+    """Files with same basename in different directories do not collide incorrectly."""
+    tid, name = "W10-CACHE4", "Path collision across directories prevented"
+    try:
+        from moo.selector_bridge import get_pareto_frontier_for
+        import hashlib
+        tmpdir = tempfile.mkdtemp()
+        dir_a = os.path.join(tmpdir, "dir_a")
+        dir_b = os.path.join(tmpdir, "dir_b")
+        os.makedirs(dir_a)
+        os.makedirs(dir_b)
+        try:
+            src_a = os.path.join(dir_a, "main.c")
+            src_b = os.path.join(dir_b, "main.c")
+            with open(src_a, "w", encoding="utf-8") as f:
+                f.write("int main() { return 10; }\n")
+            with open(src_b, "w", encoding="utf-8") as f:
+                f.write("int main() { return 20; }\n")
+            sha_a = hashlib.sha256(open(src_a, "rb").read()).hexdigest()
+            rep_data = {
+                "schema_version": "moo.report.1.0",
+                "source_file": "main.c",
+                "source_path": src_a,
+                "source_sha256": sha_a,
+                "pareto_frontier": ["-O3"],
+                "pareto_dominated": [],
+                "pareto_invalid": [],
+                "candidates": [],
+                "pipeline_error": None,
+            }
+            with open(os.path.join(tmpdir, "moo_main_c_2026-10-04_12-00-00.json"), "w") as f:
+                json.dump(rep_data, f)
+            frontier_b = get_pareto_frontier_for(src_b, report_dir=tmpdir)
+            assert frontier_b == [], "Query for dir_b/main.c must not reuse cache from dir_a/main.c"
+            report(tid, name, True)
+        finally:
+            shutil.rmtree(tmpdir, ignore_errors=True)
     except Exception as exc:
         fail(tid, name, exc)
 
@@ -1101,6 +1587,35 @@ def main():
     test_scope3_gui_file_untouched()
     test_scope4_optimization_selection_logic_unchanged()
     test_scope5_week9_bench_outputs_reused()
+
+    print("\n--- W10-PROV: Selection Provenance Enforcement ---")
+    test_prov1_valid_selection_record_accepted()
+    test_prov2_missing_selection_refuses_fabrication()
+    test_prov3_mismatched_source_sha256_rejected()
+    test_prov4_mismatched_program_id_rejected()
+    test_prov5_selection_record_roundtrip()
+
+    print("\n--- W10-NOISE: Noise-Aware Regression & Measurement Reliability ---")
+    test_noise1_unreliable_timing_yields_inconclusive()
+    test_noise2_delta_within_cv_envelope_yields_inconclusive()
+    test_noise3_control_identical_inputs_strictly_unchanged()
+    test_noise4_low_noise_confident_classification()
+
+    print("\n--- W10-DERIV: Derived Signals & Metric Families ---")
+    test_deriv1_signal_family_grouping()
+    test_deriv2_family_status_aggregation()
+    test_deriv3_derived_relationships_documented()
+
+    print("\n--- W10-HGUARD: Historical Comparison Guards & Compatibility ---")
+    test_hguard1_matching_source_hash_comparable()
+    test_hguard2_mismatched_source_hash_incomparable()
+    test_hguard3_incompatible_environment_detected()
+
+    print("\n--- W10-CACHE: MOO Cache Validity & Collision Prevention ---")
+    test_cache1_valid_report_with_matching_sha_loaded()
+    test_cache2_mismatched_source_hash_rejected()
+    test_cache3_legacy_unverified_report_rejected()
+    test_cache4_directory_path_collision_prevented()
 
     print()
     print("=" * 70)

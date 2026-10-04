@@ -24,6 +24,7 @@ from .schema import (
     OverallStatus,
     ProgramComparison,
     RegressionReport,
+    SelectionRecord,
 )
 
 
@@ -53,6 +54,7 @@ def build_regression_report(
     suite_name: str = "optimization_regression",
     thresholds: Optional[RegressionThresholds] = None,
     selected_strategies: Optional[Mapping[str, str]] = None,
+    selection_records: Optional[Mapping[str, SelectionRecord]] = None,
     metadata: Optional[dict[str, Any]] = None,
 ) -> RegressionReport:
     """
@@ -67,10 +69,12 @@ def build_regression_report(
     suite_name          : descriptive suite label
     thresholds          : RegressionThresholds instance (defaults to DEFAULT_THRESHOLDS)
     selected_strategies : optional mapping {program_id: selected_strategy_name}
+    selection_records   : optional mapping {program_id: SelectionRecord} for explicit provenance
     metadata            : optional extra metadata dict
     """
     thresh = thresholds if thresholds is not None else DEFAULT_THRESHOLDS
     sel_map = dict(selected_strategies) if selected_strategies else {}
+    sel_rec_map = dict(selection_records) if selection_records else {}
 
     # 1. Compare each program in the current run
     program_comparisons: dict[str, ProgramComparison] = {}
@@ -78,7 +82,10 @@ def build_regression_report(
     n_regressed = 0
     n_mixed = 0
     n_unchanged = 0
+    n_inconclusive = 0
     n_incomparable = 0
+
+    family_summary: dict[str, dict[str, int]] = {}
 
     for r in records:
         pid = r.get("program_id") if isinstance(r, dict) else getattr(r, "program_id", None)
@@ -86,10 +93,12 @@ def build_regression_report(
             continue
         pid_str = str(pid)
         chosen_strategy = sel_map.get(pid_str)
+        sel_rec = sel_rec_map.get(pid_str)
 
         pcomp = compare_program(
             record_or_dict=r,
             selected_strategy=chosen_strategy,
+            selection_record=sel_rec,
             thresholds=thresh,
         )
         program_comparisons[pid_str] = pcomp
@@ -102,8 +111,21 @@ def build_regression_report(
             n_mixed += 1
         elif pcomp.overall_status == OverallStatus.UNCHANGED:
             n_unchanged += 1
+        elif pcomp.overall_status == OverallStatus.INCONCLUSIVE:
+            n_inconclusive += 1
         else:
             n_incomparable += 1
+
+        # Aggregate signal family counts
+        for fam, fam_st in pcomp.family_status.items():
+            if fam not in family_summary:
+                family_summary[fam] = {
+                    "n_improved": 0, "n_regressed": 0, "n_mixed": 0,
+                    "n_unchanged": 0, "n_inconclusive": 0, "n_incomparable": 0,
+                }
+            st_key = f"n_{fam_st.value.lower()}"
+            if st_key in family_summary[fam]:
+                family_summary[fam][st_key] += 1
 
     # 2. Historical cross-run comparison if historical data provided
     hist_comp: Optional[HistoricalComparison] = None
@@ -125,6 +147,10 @@ def build_regression_report(
         },
         "git_commit": _get_git_commit(),
         "baseline_convention": "O0 unoptimized reference build (-O0) vs AI-selected optimization",
+        "derived_metrics_note": (
+            "energy and carbon are estimated derivations of execution_time. "
+            "The performance family treats these as a single underlying physical signal."
+        ),
     }
     if metadata:
         meta.update(metadata)
@@ -135,6 +161,7 @@ def build_regression_report(
         "n_regressed": n_regressed,
         "n_mixed": n_mixed,
         "n_unchanged": n_unchanged,
+        "n_inconclusive": n_inconclusive,
         "n_incomparable": n_incomparable,
     }
 
@@ -147,6 +174,7 @@ def build_regression_report(
         program_comparisons=program_comparisons,
         historical_comparison=hist_comp,
         summary=summary,
+        family_summary=family_summary,
         metadata=meta,
     )
     return report

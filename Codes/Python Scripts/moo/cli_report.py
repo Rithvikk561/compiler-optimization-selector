@@ -428,6 +428,8 @@ def save_moo_report(result: MOOEvaluationResult, report_dir: str) -> str:
     Returns the absolute path of the written file.
     """
     os.makedirs(report_dir, exist_ok=True)
+    if result.schema_version is None:
+        result.schema_version = "moo.report.1.0"
     safe = result.source_file.replace(".", "_").replace(" ", "_")
     ts = result.timestamp.replace(":", "-").replace("T", "_")
     filename = f"moo_{safe}_{ts}.json"

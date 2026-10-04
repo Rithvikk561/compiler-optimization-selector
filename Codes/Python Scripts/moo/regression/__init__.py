@@ -2,11 +2,11 @@
 moo/regression — Week 10 Optimization Regression & Comparison package.
 
 Builds on top of the Week 9 benchmark infrastructure (moo.bench) to provide:
-  - Baseline vs AI-selected optimization comparisons
+  - Baseline vs AI-selected optimization comparisons with explicit selection provenance
   - Strategy vs strategy pairwise comparisons
-  - Direction-aware regression, improvement, and unchanged detection
-  - Multi-metric aggregation
-  - Cross-run historical benchmark comparisons
+  - Noise-aware regression, improvement, unchanged, and inconclusive detection
+  - Signal family grouping (performance, size, security) and derived metric relationships
+  - Cross-run historical benchmark comparisons with source hash and environment guards
   - Versioned, structured regression reports (week10.1.0)
 """
 
@@ -14,6 +14,7 @@ from .schema import (
     REGRESSION_SCHEMA_VERSION,
     ComparisonStatus,
     OverallStatus,
+    SelectionRecord,
     MetricComparison,
     StrategyComparison,
     ProgramComparison,
@@ -24,8 +25,11 @@ from .schema import (
 from .detector import (
     RegressionThresholds,
     DEFAULT_THRESHOLDS,
+    METRIC_SIGNAL_FAMILIES,
+    DERIVED_METRIC_RELATIONSHIPS,
     detect_metric_change,
     derive_overall_status,
+    derive_family_comparisons,
 )
 from .comparator import (
     KNOWN_METRIC_SPECS,
@@ -47,6 +51,7 @@ __all__ = [
     "REGRESSION_SCHEMA_VERSION",
     "ComparisonStatus",
     "OverallStatus",
+    "SelectionRecord",
     "MetricComparison",
     "StrategyComparison",
     "ProgramComparison",
@@ -55,8 +60,11 @@ __all__ = [
     "RegressionReport",
     "RegressionThresholds",
     "DEFAULT_THRESHOLDS",
+    "METRIC_SIGNAL_FAMILIES",
+    "DERIVED_METRIC_RELATIONSHIPS",
     "detect_metric_change",
     "derive_overall_status",
+    "derive_family_comparisons",
     "KNOWN_METRIC_SPECS",
     "compare_strategies",
     "compare_program",

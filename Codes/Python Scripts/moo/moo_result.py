@@ -169,6 +169,8 @@ class MOOEvaluationResult:
     objectives_used: list = dataclasses.field(default_factory=list)
     pipeline_error: Optional[str] = None
     decision_trace: Optional["DecisionTrace"] = None
+    source_sha256: Optional[str] = None
+    schema_version: Optional[str] = None
 
     # ----------------------------------------------------------------
     # Convenience views
@@ -184,7 +186,20 @@ class MOOEvaluationResult:
         return len(self.candidates)
 
     def to_dict(self) -> dict:
+        import os
         from .measurement_quality import build_measurement_quality
+
+        sha = self.source_sha256
+        if not sha and self.source_path and os.path.isfile(self.source_path):
+            try:
+                import hashlib
+                h = hashlib.sha256()
+                with open(self.source_path, "rb") as fh:
+                    for chunk in iter(lambda: fh.read(65536), b""):
+                        h.update(chunk)
+                sha = h.hexdigest()
+            except Exception:
+                sha = None
 
         res = {
             "source_file": self.source_file,
@@ -210,6 +225,10 @@ class MOOEvaluationResult:
                 self.baseline, self.candidates
             ),
         }
+        if self.schema_version is not None:
+            res["schema_version"] = self.schema_version
+        if sha is not None:
+            res["source_sha256"] = sha
         if self.decision_trace is not None:
             res["decision_trace"] = self.decision_trace.to_dict()
         return res
