@@ -264,57 +264,100 @@ class CompilerGUI:
         self._log("Starting "+mode+" optimization...")
         threading.Thread(target=self._run_thread,args=(mode,),daemon=True).start()
 
-    def _run_thread(self,mode):
-        ll="gui_ai.ll" if mode=="AI" else "gui_o3.ll"; exe="gui_ai.exe" if mode=="AI" else "gui_o3.exe"
+    def _run_thread(self, mode):
         try:
+            from moo.runrecord.orchestrator import PipelineOrchestrator
+            from moo.runrecord.projections import to_gui_view
+
+            orch = PipelineOrchestrator()
             if mode == "AI":
-                result = get_best_optimization(self.selected_file, return_trace=True)
-                if isinstance(result, tuple):
-                    strategy, trace = result
-                    self.last_trace = trace
-                else:
-                    strategy = result
-                    self.last_trace = None
-            else:
-                strategy = "-O3"
-                self.last_trace = None
-            if not strategy: raise RuntimeError("AI failed to select an optimization strategy.")
-            self.strategy=strategy; self._log(("AI selected: " if mode=="AI" else "Using baseline: ")+strategy)
-            if self.last_trace:
-                try:
-                    self.last_xai = self.last_trace.to_xai_result()
-                except Exception:
-                    self.last_xai = None
-                self._log(f"Decision Trace: {self.last_trace.selection_reason}")
-                if self.last_trace.program_profile:
-                    p = self.last_trace.program_profile
+                self._log("Running AI optimization pipeline via RunRecord orchestrator...")
+                record = orch.execute_pipeline(self.selected_file, warmup_runs=1, measure_runs=3, timeout_s=10)
+                self.last_run_record = record
+                view = to_gui_view(record)
+
+                strategy = view["selected_strategy"] or "—"
+                self.strategy = strategy
+                self.last_trace = record.decision_trace
+                self.last_xai = record.xai_result
+
+                self._log(f"AI selected: {strategy} (provenance: {view['selection_provenance']})")
+
+                if record.program_profile:
+                    p = record.program_profile
                     self._log(f"Program Profile: {p.get('label')} (Dominant: {p.get('dominant_feature')}={p.get('dominant_feature_value')})")
                     self.root.after(0, lambda prof=p: self._update_profile_ui(prof))
                 else:
                     self.root.after(0, lambda: self._update_profile_ui(None))
+
+                if record.decision_trace:
+                    self._log(f"Decision Trace: {record.decision_trace.get('selection_reason', '')}")
+
+                # Update baseline (-O0) results from canonical RunRecord
+                base_timing = view.get("baseline_timing")
+                if base_timing and base_timing.get("median_s") is not None:
+                    self.results["o3"]["time"] = base_timing["median_s"]
+                    self.results["o3"]["size"] = base_timing.get("code_size_bytes")
+                    self.results["o3"]["security"] = "Baseline (-O0)"
+
+                # Update AI optimized results from canonical RunRecord
+                opt_timing = view.get("optimized_timing")
+                t = opt_timing.get("median_s") if opt_timing else None
+                size = opt_timing.get("code_size_bytes") if opt_timing else None
+
+                # Security from canonical RunRecord
+                sec_dict = view.get("security", {})
+                sec_verdict = sec_dict.get("verdict")
+                sec_status = sec_dict.get("status")
+                if sec_verdict == "PRESERVED":
+                    sec = "✓ Preserved"
+                elif sec_verdict:
+                    sec = f"Security: {sec_verdict}"
+                else:
+                    sec = "Not Analyzed" if sec_status == "NOT_RUN" else "—"
+
+                self.results["ai"] = {"time": t, "size": size, "security": sec}
+                t_str = f"{t:.6f} s" if t is not None else "Failed"
+                sz_str = f"{size:,} bytes" if size is not None else "N/A"
+                self._log(f"AI RunRecord [{record.run_id[:8]}]: {t_str} | {sz_str} | {sec}")
+
+                # Downstream analysis summaries
+                if record.regression_overall_status:
+                    self._log(f"Regression Comparison: {record.regression_overall_status}")
+                if record.adaptive_experience_id:
+                    self._log(f"Adaptive Learning: Experience {record.adaptive_experience_id[:16]}... (reward: {record.adaptive_reward})")
+                if record.agentic_verdict:
+                    self._log(f"Agentic AI Analysis (Advisory): {record.agentic_verdict}")
+
+                self.root.after(0, self.refresh)
+
             else:
-                self.last_xai = None
-                self.root.after(0, lambda: self._update_profile_ui(None))
-            if not apply_optimization(self.selected_file,ll,strategy): raise RuntimeError("LLVM optimization failed.")
-            r=subprocess.run([CLANG_PATH,ll,"-o",exe],capture_output=True,text=True)
-            if r.returncode!=0: raise RuntimeError(r.stderr)
-            subprocess.run([exe],capture_output=True,timeout=10)
-            times=[]
-            for _ in range(5):
-                s=time.perf_counter(); r=subprocess.run([exe],capture_output=True,timeout=10); times.append(time.perf_counter()-s)
-                if r.returncode!=0: raise RuntimeError("Benchmark executable returned an error.")
-            t=min(times); size=os.path.getsize(exe); sec="✓ Preserved"
-            key="ai" if mode=="AI" else "o3"; self.results[key]={"time":t,"size":size,"security":sec}
-            self._log(f"{mode}: {t:.6f} s | {size:,} bytes | {sec}")
-            self.root.after(0,self.refresh)
+                self._log("Running -O3 baseline compilation and measurement...")
+                record = orch.execute_pipeline(
+                    self.selected_file,
+                    selected_strategy="-O3",
+                    run_regression=False,
+                    run_adaptive=False,
+                    run_agentic=False,
+                    warmup_runs=1,
+                    measure_runs=3,
+                    timeout_s=10,
+                )
+                view = to_gui_view(record)
+                opt_timing = view.get("optimized_timing")
+                t = opt_timing.get("median_s") if opt_timing else None
+                size = opt_timing.get("code_size_bytes") if opt_timing else None
+                self.results["o3"] = {"time": t, "size": size, "security": "Baseline (-O3)"}
+                t_str = f"{t:.6f} s" if t is not None else "Failed"
+                sz_str = f"{size:,} bytes" if size is not None else "N/A"
+                self._log(f"-O3 Baseline: {t_str} | {sz_str}")
+                self.root.after(0, self.refresh)
+
         except Exception as e:
-            self._log("ERROR: "+str(e)); self.root.after(0,lambda err=str(e):messagebox.showerror("Optimization Error",err))
+            self._log("ERROR: " + str(e))
+            self.root.after(0, lambda err=str(e): messagebox.showerror("Optimization Error", err))
         finally:
-            for x in (ll,exe):
-                if os.path.exists(x):
-                    try: os.remove(x)
-                    except: pass
-            self.root.after(0,self.finish)
+            self.root.after(0, self.finish)
 
     def finish(self):
         self.running=False; self.progress.stop(); self.status.set("Ready")
