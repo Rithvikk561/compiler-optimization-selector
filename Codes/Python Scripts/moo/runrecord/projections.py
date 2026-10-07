@@ -475,6 +475,11 @@ def to_gui_view(record: RunRecord) -> dict[str, Any]:
 
         # Security — explicit NOT_RUN unless analyzer ran
         "security": security_summary,
+        "security_gate": record.security_gate,
+        "security_events_summary": {
+            "total_events": len(record.security_events),
+            "blocked_events": sum(1 for e in record.security_events if e.get("blocked", False)),
+        },
 
         # Adaptive (advisory)
         "adaptive": adaptive_summary,

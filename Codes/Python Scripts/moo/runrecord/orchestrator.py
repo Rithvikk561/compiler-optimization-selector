@@ -151,7 +151,8 @@ class PipelineOrchestrator:
             toolchain_notes=toolchain_notes,
         )
 
-        # 3. Secure Code Analysis
+        # 3. Secure Code Analysis & 13B Input Security Screening
+        source_comments = []
         if run_security:
             try:
                 from ..security.source_scan import scan_source
@@ -175,6 +176,27 @@ class PipelineOrchestrator:
             except Exception as exc:
                 builder.add_note(f"Security analysis error: {exc}")
 
+            # 13B Input Screening: Extract and screen source comments and program identifier
+            try:
+                from ..agentic_security.input_screen import extract_c_comments
+                from ..agentic_security.schema import SimulatedAgentRequest, SimulatedChannel
+                from ..agentic_security.guard import AgenticSecurityGuard
+                with open(source_path, "r", encoding="utf-8", errors="replace") as f_src:
+                    source_content = f_src.read()
+                source_comments = extract_c_comments(source_content)
+                sec_guard = AgenticSecurityGuard()
+                for c_idx, comment in enumerate(source_comments):
+                    req = SimulatedAgentRequest(
+                        request_id=f"comment_{c_idx}",
+                        channel=SimulatedChannel.SOURCE_COMMENT,
+                        text=comment,
+                    )
+                    gres = sec_guard.screen_request(req, run_id=run_id)
+                    if gres.events:
+                        builder.add_security_events(gres.events)
+            except Exception as exc:
+                builder.add_note(f"Source comment security screening error: {exc}")
+
         # 4. IR feature extraction & Program Profile (Week 7/8)
         ir_features = None
         profile = None
@@ -195,6 +217,7 @@ class PipelineOrchestrator:
         chosen_strategy = selected_strategy
         decision_trace = None
         model_id = "production_v0"
+        q_rank = None
 
         if chosen_strategy is None:
             try:
@@ -204,6 +227,7 @@ class PipelineOrchestrator:
                     chosen_strategy = sel.strategy
                     decision_trace = sel.decision_trace
                     model_id = sel.model_id
+                    q_rank = getattr(sel, "q_rank", None)
                     builder.set_selection(
                         selected_strategy=chosen_strategy,
                         decision_trace=decision_trace,
@@ -217,26 +241,53 @@ class PipelineOrchestrator:
         else:
             builder.set_selection(selected_strategy=chosen_strategy, model_id=model_id)
 
-        # 6. Compilation & Benchmark Execution
+        # 5b. Week 13A Optimization Security Gate & Fallback Ladder
+        effective_strategy = chosen_strategy
+        fallback_occurred = False
+        if run_security and chosen_strategy and toolchain_ok:
+            try:
+                from ..security.gate import OptimizationSecurityGate, GateDecision
+                from ..toolchain import CLANG_PATH, OPT_PATH
+                gate = OptimizationSecurityGate(clang_path=CLANG_PATH, opt_path=OPT_PATH)
+                gate_res = gate.run_gate(
+                    source_path=source_path,
+                    selected_strategy=chosen_strategy,
+                    q_rank=q_rank,
+                    run_id=run_id,
+                )
+                builder.set_security_gate(gate_res)
+                if gate_res.security_events:
+                    builder.add_security_events(gate_res.security_events)
+
+                effective_strategy = gate_res.effective_strategy
+                fallback_occurred = gate_res.fallback_occurred
+                if fallback_occurred:
+                    builder.add_note(
+                        f"Security Gate triggered fallback: original {chosen_strategy} -> effective {effective_strategy}"
+                    )
+            except Exception as exc:
+                builder.add_note(f"Optimization security gate error: {exc}")
+
+        # 6. Compilation & Benchmark Execution (using effective_strategy)
         moo_result = None
-        if run_benchmarks and chosen_strategy and toolchain_ok:
+        if run_benchmarks and effective_strategy and toolchain_ok:
             try:
                 from ..pipeline import evaluate_program
                 moo_result = evaluate_program(
                     source_path=source_path,
-                    actions=[chosen_strategy],
+                    actions=[effective_strategy],
                     warmup_runs=warmup_runs,
                     measure_runs=measure_runs,
                     timeout_s=timeout_s,
                 )
                 builder.set_moo_result(moo_result)
-                builder.set_optimized_from_moo(moo_result, chosen_strategy)
+                builder.set_optimized_from_moo(moo_result, effective_strategy)
             except Exception as exc:
                 builder.set_baseline_measurement(None, error=f"Benchmark execution error: {exc}")
-                builder.set_optimized_measurement(chosen_strategy, None, error=f"Benchmark execution error: {exc}")
+                builder.set_optimized_measurement(effective_strategy, None, error=f"Benchmark execution error: {exc}")
         elif not toolchain_ok:
             builder.set_baseline_measurement(None, error="Toolchain not available")
-            builder.set_optimized_measurement(chosen_strategy or "unknown", None, error="Toolchain not available")
+            builder.set_optimized_measurement(effective_strategy or "unknown", None, error="Toolchain not available")
 
         # 7. Downstream: Week 10 Regression Comparison
         prog_comp = None
@@ -245,7 +296,7 @@ class PipelineOrchestrator:
             and moo_result is not None
             and moo_result.baseline
             and moo_result.baseline.build_ok
-            and chosen_strategy
+            and effective_strategy
         ):
             try:
                 from ..regression.comparator import compare_program
@@ -257,17 +308,18 @@ class PipelineOrchestrator:
                 sel_rec = SelectionRecord(
                     program_id=pid,
                     source_sha256=sha,
-                    selected_strategy=chosen_strategy,
+                    selected_strategy=effective_strategy,
                     selection_source="DQN∩Pareto" if builder._selection_provenance.value == "DQN_MOO" else "DQN_fallback",
                 )
-                prog_comp = compare_program(moo_dict, selected_strategy=chosen_strategy, selection_record=sel_rec)
+                prog_comp = compare_program(moo_dict, selected_strategy=effective_strategy, selection_record=sel_rec)
                 builder.set_regression(prog_comp)
             except Exception as exc:
                 builder.add_note(f"Regression comparison error: {exc}")
 
         # 8. Downstream: Week 11 Adaptive Learning (Advisory Only)
+        # CRITICAL: If fallback occurred, adaptive learning must NOT credit the rejected model selection
         exp_rec = None
-        if run_adaptive and prog_comp is not None and ir_features:
+        if run_adaptive and prog_comp is not None and ir_features and not fallback_occurred:
             try:
                 from ..adaptive.adapter import experience_from_program_comparison
                 exp_rec = experience_from_program_comparison(
@@ -279,14 +331,25 @@ class PipelineOrchestrator:
                     builder.set_adaptive(exp_rec)
             except Exception as exc:
                 builder.add_note(f"Adaptive learning error: {exc}")
+        elif fallback_occurred:
+            builder.add_note("Adaptive learning skipped because security gate rejected original candidate")
 
         # 9. Downstream: Week 12 Agentic AI Analysis (Advisory Only)
-        if run_agentic and chosen_strategy:
+        if run_agentic and effective_strategy:
             try:
                 from ..agentic import analyze_compilation
                 from .builder import _sha256_of_file
+                from ..agentic_security.output_validator import validate_agent_report
+                from ..agentic_security.guard import AgenticSecurityGuard
+
                 pid = os.path.splitext(os.path.basename(source_path))[0]
                 sha = _sha256_of_file(source_path) or "unknown_sha"
+
+                # CRITICAL: If fallback occurred, Tier 3 empirical evidence (prog_comp) must be withheld
+                effective_prog_comp = None if fallback_occurred else (
+                    prog_comp.to_dict() if hasattr(prog_comp, "to_dict") else prog_comp
+                )
+
                 agent_rep = analyze_compilation(
                     program_id=pid,
                     source_hash=sha,
@@ -294,10 +357,19 @@ class PipelineOrchestrator:
                     decision_trace=decision_trace,
                     program_profile=profile.to_dict() if hasattr(profile, "to_dict") else profile,
                     experience_records=[exp_rec.to_dict() if hasattr(exp_rec, "to_dict") else exp_rec] if exp_rec else [],
-                    program_comparison=prog_comp.to_dict() if hasattr(prog_comp, "to_dict") else prog_comp,
+                    program_comparison=effective_prog_comp,
                 )
+
                 if agent_rep:
-                    builder.set_agentic(agent_rep)
+                    rep_dict = agent_rep.to_dict() if hasattr(agent_rep, "to_dict") else dict(agent_rep)
+                    # Agentic AI Output Security Validation
+                    guard = AgenticSecurityGuard()
+                    val_res = guard.validate_report(rep_dict, expected_selected_strategy=chosen_strategy, run_id=run_id)
+                    if val_res.allowed:
+                        builder.set_agentic(agent_rep)
+                    else:
+                        builder.add_note(f"Agentic report quarantined by security: {val_res.reason}")
+                        builder.add_security_events(val_res.events)
             except Exception as exc:
                 builder.add_note(f"Agentic AI analysis error: {exc}")
 

@@ -284,6 +284,11 @@ class RunRecordBuilder:
         self._security_verdict: Optional[str] = None
         self._security_status: RunStatus = RunStatus.NOT_RUN
 
+        # Week 13 Security Gate and Agentic Security additions
+        self._security_gate: Optional[dict] = None
+        self._agentic_security: Optional[dict] = None
+        self._security_events: list[dict] = []
+
         self._run_notes: list[str] = []
 
     # ----------------------------------------------------------------
@@ -827,6 +832,46 @@ class RunRecordBuilder:
 
         return self
 
+    def set_security_gate(self, gate_result: Any) -> "RunRecordBuilder":
+        """Attach an OptimizationSecurityGate result or GateResult dictionary."""
+        if gate_result is None:
+            self._security_gate = None
+            return self
+        if isinstance(gate_result, dict):
+            self._security_gate = dict(gate_result)
+        elif hasattr(gate_result, "to_dict"):
+            self._security_gate = gate_result.to_dict()
+        else:
+            self._security_gate = {"raw": str(gate_result)}
+        return self
+
+    def set_agentic_security(self, agentic_sec_result: Any) -> "RunRecordBuilder":
+        """Attach an Agentic AI security assessment summary dictionary."""
+        if agentic_sec_result is None:
+            self._agentic_security = None
+            return self
+        if isinstance(agentic_sec_result, dict):
+            self._agentic_security = dict(agentic_sec_result)
+        elif hasattr(agentic_sec_result, "to_dict"):
+            self._agentic_security = agentic_sec_result.to_dict()
+        else:
+            self._agentic_security = {"raw": str(agentic_sec_result)}
+        return self
+
+    def add_security_events(self, events: Any) -> "RunRecordBuilder":
+        """Attach one or more SecurityEvent objects or dictionaries."""
+        if not events:
+            return self
+        evt_list = events if isinstance(events, (list, tuple)) else [events]
+        for e in evt_list:
+            if isinstance(e, dict):
+                self._security_events.append(dict(e))
+            elif hasattr(e, "to_dict"):
+                self._security_events.append(e.to_dict())
+            else:
+                self._security_events.append({"raw": str(e)})
+        return self
+
     # ----------------------------------------------------------------
     # Notes
     # ----------------------------------------------------------------
@@ -925,6 +970,9 @@ class RunRecordBuilder:
             security_result=self._security_result,
             security_verdict=self._security_verdict,
             security_status=self._security_status,
+            security_gate=self._security_gate,
+            agentic_security=self._agentic_security,
+            security_events=list(self._security_events),
             run_notes=list(self._run_notes),
         )
 

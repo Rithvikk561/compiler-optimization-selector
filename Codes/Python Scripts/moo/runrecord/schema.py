@@ -355,6 +355,11 @@ class RunRecord:
     # SAFETY: security_status = NOT_RUN unless the security analyzer actually ran.
     # NEVER fabricate a positive security result.
 
+    # --- Week 13 Security Additions ---
+    security_gate: Optional[dict] = None              # GateResult.to_dict()
+    agentic_security: Optional[dict] = None           # Agentic security assessment summary
+    security_events: list[dict] = dataclasses.field(default_factory=list)  # list of SecurityEvent.to_dict()
+
     # --- Overall run summary ---
     overall_status: RunStatus = RunStatus.UNKNOWN
     run_notes: list[str] = dataclasses.field(default_factory=list)
@@ -420,6 +425,9 @@ class RunRecord:
             "security_result": self.security_result,
             "security_verdict": self.security_verdict,
             "security_status": self.security_status.value,
+            "security_gate": self.security_gate,
+            "agentic_security": self.agentic_security,
+            "security_events": list(self.security_events),
             "overall_status": self.overall_status.value,
             "run_notes": list(self.run_notes),
         }
@@ -518,6 +526,9 @@ class RunRecord:
             security_result=d.get("security_result"),
             security_verdict=d.get("security_verdict"),
             security_status=_rs("security_status", RunStatus.NOT_RUN),
+            security_gate=d.get("security_gate"),
+            agentic_security=d.get("agentic_security"),
+            security_events=list(d.get("security_events") or []),
             overall_status=_rs("overall_status", RunStatus.UNKNOWN),
             run_notes=list(d.get("run_notes") or []),
         )
