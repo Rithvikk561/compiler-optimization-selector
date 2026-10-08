@@ -267,7 +267,11 @@ class CompilerGUI:
     def _run_thread(self, mode):
         try:
             from moo.runrecord.orchestrator import PipelineOrchestrator
-            from moo.runrecord.projections import to_gui_view
+            from moo.runrecord.projections import (
+                to_gui_view,
+                security_display_text,
+                validate_reference_run,
+            )
 
             orch = PipelineOrchestrator()
             if mode == "AI":
@@ -276,12 +280,15 @@ class CompilerGUI:
                 self.last_run_record = record
                 view = to_gui_view(record)
 
-                strategy = view["selected_strategy"] or "—"
-                self.strategy = strategy
+                selected = view.get("selected_strategy") or "—"
+                effective = view.get("effective_strategy") or selected
+                self.strategy = effective
                 self.last_trace = record.decision_trace
                 self.last_xai = record.xai_result
 
-                self._log(f"AI selected: {strategy} (provenance: {view['selection_provenance']})")
+                self._log(f"AI selected: {selected} (effective: {effective}, provenance: {view.get('selection_provenance')})")
+                if view.get("fallback_occurred"):
+                    self._log(f"[FALLBACK] Security gate substituted {selected} -> {effective}")
 
                 if record.program_profile:
                     p = record.program_profile
@@ -305,16 +312,8 @@ class CompilerGUI:
                 t = opt_timing.get("median_s") if opt_timing else None
                 size = opt_timing.get("code_size_bytes") if opt_timing else None
 
-                # Security from canonical RunRecord
-                sec_dict = view.get("security", {})
-                sec_verdict = sec_dict.get("verdict")
-                sec_status = sec_dict.get("status")
-                if sec_verdict == "PRESERVED":
-                    sec = "✓ Preserved"
-                elif sec_verdict:
-                    sec = f"Security: {sec_verdict}"
-                else:
-                    sec = "Not Analyzed" if sec_status == "NOT_RUN" else "—"
+                # Security from canonical RunRecord view helper
+                sec = security_display_text(view)
 
                 self.results["ai"] = {"time": t, "size": size, "security": sec}
                 t_str = f"{t:.6f} s" if t is not None else "Failed"
@@ -336,6 +335,7 @@ class CompilerGUI:
                 record = orch.execute_pipeline(
                     self.selected_file,
                     selected_strategy="-O3",
+                    run_security=False,
                     run_regression=False,
                     run_adaptive=False,
                     run_agentic=False,
@@ -344,10 +344,14 @@ class CompilerGUI:
                     timeout_s=10,
                 )
                 view = to_gui_view(record)
+                is_valid, reason = validate_reference_run(view, "-O3")
                 opt_timing = view.get("optimized_timing")
                 t = opt_timing.get("median_s") if opt_timing else None
                 size = opt_timing.get("code_size_bytes") if opt_timing else None
-                self.results["o3"] = {"time": t, "size": size, "security": "Baseline (-O3)"}
+                sec_o3 = "Baseline (-O3)" if is_valid else "Not a valid -O3 reference"
+                if not is_valid:
+                    self._log(f"WARNING: -O3 reference validation failed: {reason}")
+                self.results["o3"] = {"time": t, "size": size, "security": sec_o3}
                 t_str = f"{t:.6f} s" if t is not None else "Failed"
                 sz_str = f"{size:,} bytes" if size is not None else "N/A"
                 self._log(f"-O3 Baseline: {t_str} | {sz_str}")

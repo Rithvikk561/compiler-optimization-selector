@@ -289,6 +289,10 @@ class RunRecordBuilder:
         self._agentic_security: Optional[dict] = None
         self._security_events: list[dict] = []
 
+        # Week 14 Effective Strategy Provenance additions
+        self._effective_strategy: Optional[str] = None
+        self._fallback_occurred: bool = False
+
         self._run_notes: list[str] = []
 
     # ----------------------------------------------------------------
@@ -453,6 +457,23 @@ class RunRecordBuilder:
                 self._moo_active = bool(moo_active)
 
         self._selection_status = RunStatus.OK
+        return self
+
+    def set_effective_strategy(
+        self,
+        effective_strategy: Optional[str],
+        fallback_occurred: bool = False,
+    ) -> "RunRecordBuilder":
+        """
+        Record the effective strategy determined after the security gate.
+        Does NOT alter _selected_strategy.
+        """
+        if not isinstance(effective_strategy, str) or not effective_strategy:
+            self._effective_strategy = None
+            self._fallback_occurred = False
+            return self
+        self._effective_strategy = effective_strategy
+        self._fallback_occurred = bool(fallback_occurred)
         return self
 
     # ----------------------------------------------------------------
@@ -913,6 +934,17 @@ class RunRecordBuilder:
         if self._source_path:
             source_file = os.path.basename(self._source_path)
 
+        # Week 14 Invariant Check
+        if (
+            self._optimized_measurement is not None
+            and self._effective_strategy is not None
+            and self._optimized_measurement.strategy
+            and self._optimized_measurement.strategy != self._effective_strategy
+        ):
+            self._run_notes.append(
+                f"[W14-PROVENANCE] optimized_measurement.strategy={self._optimized_measurement.strategy} != effective_strategy={self._effective_strategy}"
+            )
+
         record = RunRecord(
             schema_version=RUNRECORD_SCHEMA_VERSION,
             run_id=self._run_id,
@@ -973,6 +1005,8 @@ class RunRecordBuilder:
             security_gate=self._security_gate,
             agentic_security=self._agentic_security,
             security_events=list(self._security_events),
+            effective_strategy=self._effective_strategy,
+            fallback_occurred=self._fallback_occurred,
             run_notes=list(self._run_notes),
         )
 

@@ -360,6 +360,12 @@ class RunRecord:
     agentic_security: Optional[dict] = None           # Agentic security assessment summary
     security_events: list[dict] = dataclasses.field(default_factory=list)  # list of SecurityEvent.to_dict()
 
+    # --- Effective strategy provenance (Week 14) ---
+    # selected_strategy is ALWAYS the original AI/MOO selection;
+    # effective_strategy is what was actually (or would be) benchmarked after the security gate.
+    effective_strategy: Optional[str] = None
+    fallback_occurred: bool = False
+
     # --- Overall run summary ---
     overall_status: RunStatus = RunStatus.UNKNOWN
     run_notes: list[str] = dataclasses.field(default_factory=list)
@@ -428,6 +434,8 @@ class RunRecord:
             "security_gate": self.security_gate,
             "agentic_security": self.agentic_security,
             "security_events": list(self.security_events),
+            "effective_strategy": self.effective_strategy,
+            "fallback_occurred": self.fallback_occurred,
             "overall_status": self.overall_status.value,
             "run_notes": list(self.run_notes),
         }
@@ -529,6 +537,8 @@ class RunRecord:
             security_gate=d.get("security_gate"),
             agentic_security=d.get("agentic_security"),
             security_events=list(d.get("security_events") or []),
+            effective_strategy=d.get("effective_strategy") or None,
+            fallback_occurred=bool(d.get("fallback_occurred", False)),
             overall_status=_rs("overall_status", RunStatus.UNKNOWN),
             run_notes=list(d.get("run_notes") or []),
         )

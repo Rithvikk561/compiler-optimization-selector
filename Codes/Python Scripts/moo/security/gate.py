@@ -6,7 +6,8 @@ Verdict action rules:
 - PRESERVED: ACCEPT
 - REDUCED: ACCEPT_WITH_WARNINGS (create LOW security event)
 - ELIMINATED: REJECT candidate (create OPTIMIZATION_GUARD_VIOLATION event), trigger fallback ladder
-- UNKNOWN / ERROR with baseline guards: ACCEPT_WITH_WARNINGS (unverified=True, create event), never claim safe
+- UNKNOWN / ERROR: fail closed to fallback ladder with unverified=True (create GUARD_ERROR event), never claim safe
+- Terminal -O0 baseline fallback yields ACCEPT_WITH_WARNINGS with unverified=True
 
 Fallback ladder:
   selected strategy -> up to 2 next-best strategies from q_rank -> BASELINE (-O0)

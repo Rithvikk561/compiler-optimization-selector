@@ -138,10 +138,17 @@ class PipelineOrchestrator:
         clang_v, opt_v, toolchain_ok, toolchain_notes = None, None, False, []
         try:
             from ..toolchain import verify_toolchain
-            clang_v, opt_v, incomp = verify_toolchain()
-            toolchain_ok = bool(clang_v)
+            clang_info, opt_info, incomp = verify_toolchain()
+            toolchain_ok = bool(getattr(clang_info, "found", False))
+            clang_v = clang_info.version_string if getattr(clang_info, "found", False) else None
+            opt_v = opt_info.version_string if getattr(opt_info, "found", False) else None
             toolchain_notes = [f"[{i.kind}] {i.detail}" for i in incomp]
+            if not getattr(clang_info, "found", False):
+                toolchain_notes.append("clang not found")
+            if not getattr(opt_info, "found", False):
+                toolchain_notes.append("opt not found")
         except Exception as exc:
+            toolchain_ok = False
             toolchain_notes = [f"Toolchain probe error: {exc}"]
 
         builder.set_toolchain(
@@ -153,6 +160,12 @@ class PipelineOrchestrator:
 
         # 3. Secure Code Analysis & 13B Input Security Screening
         source_comments = []
+        screened_comments_count = 0
+        screening_events_count = 0
+        screening_blocked_count = 0
+        screening_error = None
+        comment_screening_performed = False
+
         if run_security:
             try:
                 from ..security.source_scan import scan_source
@@ -168,9 +181,12 @@ class PipelineOrchestrator:
                     sec_verdict = CandidateVerdict.NOT_APPLICABLE
 
                 sec_result = CandidateSecurity(
-                    strategy_name=selected_strategy or "unknown",
+                    strategy_name="source_scan",
                     verdict=sec_verdict,
-                    notes=[f"Source findings: {len(findings)}"],
+                    notes=[
+                        f"Source findings: {len(findings)}",
+                        "scope=SOURCE_SCAN; not an optimization-candidate verdict",
+                    ],
                 )
                 builder.set_security(sec_result)
             except Exception as exc:
@@ -184,6 +200,8 @@ class PipelineOrchestrator:
                 with open(source_path, "r", encoding="utf-8", errors="replace") as f_src:
                     source_content = f_src.read()
                 source_comments = extract_c_comments(source_content)
+                comment_screening_performed = True
+                screened_comments_count = len(source_comments)
                 sec_guard = AgenticSecurityGuard()
                 for c_idx, comment in enumerate(source_comments):
                     req = SimulatedAgentRequest(
@@ -193,8 +211,11 @@ class PipelineOrchestrator:
                     )
                     gres = sec_guard.screen_request(req, run_id=run_id)
                     if gres.events:
+                        screening_events_count += len(gres.events)
+                        screening_blocked_count += sum(1 for e in gres.events if getattr(e, "blocked", False))
                         builder.add_security_events(gres.events)
             except Exception as exc:
+                screening_error = str(exc)
                 builder.add_note(f"Source comment security screening error: {exc}")
 
         # 4. IR feature extraction & Program Profile (Week 7/8)
@@ -241,9 +262,31 @@ class PipelineOrchestrator:
         else:
             builder.set_selection(selected_strategy=chosen_strategy, model_id=model_id)
 
-        # 5b. Week 13A Optimization Security Gate & Fallback Ladder
+        # 5b. Week 13A/14 Optimization Security Gate & Fallback Ladder
         effective_strategy = chosen_strategy
         fallback_occurred = False
+
+        # MOO-invalid constraint (W14 minimal/intentional)
+        # Fallback is security-driven; pareto_invalid strategies are known build/correctness
+        # failures. Exclude them from fallback ladder candidates, except if already chosen.
+        # Dominated strategies are intentionally NOT excluded; ladder is not restricted to frontier.
+        # -O0 always remains terminal fallback. gate.py is unchanged.
+        gate_q_rank = q_rank
+        if q_rank and decision_trace is not None:
+            invalid = set(
+                getattr(decision_trace, "pareto_invalid", None)
+                or (decision_trace.get("pareto_invalid") if isinstance(decision_trace, dict) else [])
+                or []
+            )
+            filtered_q_rank = [
+                (name, q) for (name, q) in q_rank
+                if (name not in invalid) or (name == chosen_strategy)
+            ]
+            excluded = [name for (name, _) in q_rank if name in invalid and name != chosen_strategy]
+            if excluded:
+                builder.add_note(f"[W14-FALLBACK] q_rank candidates excluded as MOO-invalid: {excluded}")
+            gate_q_rank = filtered_q_rank
+
         if run_security and chosen_strategy and toolchain_ok:
             try:
                 from ..security.gate import OptimizationSecurityGate, GateDecision
@@ -252,21 +295,93 @@ class PipelineOrchestrator:
                 gate_res = gate.run_gate(
                     source_path=source_path,
                     selected_strategy=chosen_strategy,
-                    q_rank=q_rank,
+                    q_rank=gate_q_rank,
                     run_id=run_id,
                 )
+                if not gate_res or not isinstance(getattr(gate_res, "effective_strategy", None), str) or not gate_res.effective_strategy:
+                    raise ValueError(f"Security gate returned invalid result or empty effective_strategy: {gate_res}")
+
                 builder.set_security_gate(gate_res)
                 if gate_res.security_events:
                     builder.add_security_events(gate_res.security_events)
 
                 effective_strategy = gate_res.effective_strategy
-                fallback_occurred = gate_res.fallback_occurred
-                if fallback_occurred:
+                if gate_res.fallback_occurred:
                     builder.add_note(
                         f"Security Gate triggered fallback: original {chosen_strategy} -> effective {effective_strategy}"
                     )
             except Exception as exc:
-                builder.add_note(f"Optimization security gate error: {exc}")
+                effective_strategy = "-O0"
+                gate_events = []
+                try:
+                    from ..secevent.schema import (
+                        ThreatDomain,
+                        AttackType,
+                        EventSource,
+                        ActionAttempted,
+                        ActionTaken,
+                        SecurityEvent,
+                    )
+                    from ..secevent.risk import Signal, compute_risk_assessment
+                    from ..secevent.log import SecurityEventLog
+
+                    sig = Signal("G_EXC", "gate_exception", 8, 0.90, evidence=str(exc)[:256])
+                    risk = compute_risk_assessment([sig])
+                    seq = SecurityEventLog().next_sequence()
+                    evt = SecurityEvent.create(
+                        sequence=seq,
+                        threat_domain=ThreatDomain.OPTIMIZATION_SAFETY,
+                        attack_type=AttackType.GUARD_ERROR,
+                        source=EventSource.OPTIMIZATION_SECURITY_GATE,
+                        risk_level=risk.risk_level,
+                        score=risk.score,
+                        confidence=risk.confidence,
+                        evidence=f"Gate exception: {exc}",
+                        action_attempted=ActionAttempted.UNKNOWN_ACTION,
+                        action_taken=ActionTaken.BLOCK,
+                        blocked=True,
+                        reason=f"Security gate failed closed on exception ({type(exc).__name__}: {exc})",
+                        affected_run_id=run_id,
+                        policy_rules=["VERIFICATION_INTEGRITY_FAIL_CLOSED"],
+                    )
+                    gate_events.append(evt)
+                    builder.add_security_events([evt])
+                except Exception as evt_exc:
+                    builder.add_note(f"[W14-SECURITY] Failed to construct fail-closed SecurityEvent: {evt_exc}")
+
+                from ..security.gate import GateDecision
+                synthetic_gate = {
+                    "decision": GateDecision.FALLBACK.value,
+                    "effective_strategy": "-O0",
+                    "original_strategy": chosen_strategy,
+                    "candidate_security": None,
+                    "fallback_occurred": True,
+                    "fallback_history": [chosen_strategy, "-O0"],
+                    "unverified": True,
+                    "security_events": [e.to_dict() for e in gate_events],
+                    "notes": [f"Security gate exception: {exc}"],
+                    "gate_exception": str(type(exc).__name__),
+                    "gate_error": str(exc),
+                }
+                builder.set_security_gate(synthetic_gate)
+                builder.add_note(
+                    f"[W14-SECURITY] Security gate failed ({type(exc).__name__}: {exc}); failing closed: original {chosen_strategy} -> effective -O0"
+                )
+        elif chosen_strategy:
+            effective_strategy = chosen_strategy
+            if not run_security:
+                builder.add_note("Optimization security gate skipped: run_security=False")
+            elif not toolchain_ok:
+                builder.add_note("Optimization security gate skipped: toolchain unavailable")
+
+        if chosen_strategy:
+            fallback_occurred = (effective_strategy != chosen_strategy)
+            builder.set_effective_strategy(effective_strategy, fallback_occurred)
+
+        if fallback_occurred:
+            builder.add_note(
+                f"[W14-PROVENANCE] XAI/DecisionTrace describe the original selection {chosen_strategy}; the security gate substituted effective strategy {effective_strategy}."
+            )
 
         # 6. Compilation & Benchmark Execution (using effective_strategy)
         moo_result = None
@@ -309,7 +424,11 @@ class PipelineOrchestrator:
                     program_id=pid,
                     source_sha256=sha,
                     selected_strategy=effective_strategy,
-                    selection_source="DQN∩Pareto" if builder._selection_provenance.value == "DQN_MOO" else "DQN_fallback",
+                    selection_source=(
+                        "security_gate_fallback"
+                        if fallback_occurred
+                        else ("DQN∩Pareto" if builder._selection_provenance.value == "DQN_MOO" else "DQN_fallback")
+                    ),
                 )
                 prog_comp = compare_program(moo_dict, selected_strategy=effective_strategy, selection_record=sel_rec)
                 builder.set_regression(prog_comp)
@@ -332,9 +451,15 @@ class PipelineOrchestrator:
             except Exception as exc:
                 builder.add_note(f"Adaptive learning error: {exc}")
         elif fallback_occurred:
-            builder.add_note("Adaptive learning skipped because security gate rejected original candidate")
+            builder.add_note("[W14-ADAPTIVE] Adaptive learning skipped because security gate rejected original candidate")
 
         # 9. Downstream: Week 12 Agentic AI Analysis (Advisory Only)
+        output_val_performed = False
+        output_val_result = "NOT_RUN"
+        output_val_expected_strat = None
+        output_val_reason = None
+        report_quarantined = False
+
         if run_agentic and effective_strategy:
             try:
                 from ..agentic import analyze_compilation
@@ -350,6 +475,11 @@ class PipelineOrchestrator:
                     prog_comp.to_dict() if hasattr(prog_comp, "to_dict") else prog_comp
                 )
 
+                if fallback_occurred:
+                    builder.add_note(
+                        f"[W14-AGENTIC] Agentic analysis describes original selection {chosen_strategy}; benchmarked strategy was {effective_strategy}; empirical (Tier 3) evidence withheld."
+                    )
+
                 agent_rep = analyze_compilation(
                     program_id=pid,
                     source_hash=sha,
@@ -364,14 +494,51 @@ class PipelineOrchestrator:
                     rep_dict = agent_rep.to_dict() if hasattr(agent_rep, "to_dict") else dict(agent_rep)
                     # Agentic AI Output Security Validation
                     guard = AgenticSecurityGuard()
+                    output_val_performed = True
+                    output_val_expected_strat = chosen_strategy
                     val_res = guard.validate_report(rep_dict, expected_selected_strategy=chosen_strategy, run_id=run_id)
+                    output_val_reason = val_res.reason
                     if val_res.allowed:
+                        output_val_result = "VALIDATED"
                         builder.set_agentic(agent_rep)
                     else:
+                        output_val_result = "QUARANTINED"
+                        report_quarantined = True
                         builder.add_note(f"Agentic report quarantined by security: {val_res.reason}")
                         builder.add_security_events(val_res.events)
             except Exception as exc:
+                output_val_performed = True
+                output_val_result = "ERROR"
+                output_val_reason = str(exc)
                 builder.add_note(f"Agentic AI analysis error: {exc}")
+
+        # 9b. Agentic Security Assessment Integration (Week 14)
+        if run_security or run_agentic:
+            agentic_sec_summary = {
+                "schema": "w14.agentic_security.1",
+                "input_screening": {
+                    "channel": "SOURCE_COMMENT",
+                    "performed": comment_screening_performed,
+                    "comments_screened": screened_comments_count,
+                    "events": screening_events_count,
+                    "blocked": screening_blocked_count,
+                    "enforcement": "LOG_ONLY",
+                    "error": screening_error,
+                },
+                "output_validation": {
+                    "performed": output_val_performed,
+                    "result": output_val_result,
+                    "expected_strategy": output_val_expected_strat,
+                    "reason": output_val_reason,
+                },
+                "report_quarantined": report_quarantined,
+                "action_policy": {"exercised_in_pipeline": False},
+                "artifact_scan": {
+                    "exercised_in_pipeline": False,
+                    "reason": "AgentEngine produces no generated artifacts",
+                },
+            }
+            builder.set_agentic_security(agentic_sec_summary)
 
         # 10. Assemble and persist RunRecord
         record = builder.build()

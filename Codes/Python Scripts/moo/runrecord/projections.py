@@ -115,6 +115,30 @@ def to_regression_input(record: RunRecord) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Fallback evidence detection helper (Week 14)
+# ---------------------------------------------------------------------------
+
+def _fallback_evidence(record: RunRecord) -> bool:
+    """
+    Detect whether a RunRecord underwent security fallback.
+    Examines explicit flags, security gate dictionaries, and strategy provenance.
+    """
+    if getattr(record, "fallback_occurred", False):
+        return True
+    sec_gate = getattr(record, "security_gate", None)
+    if isinstance(sec_gate, dict) and sec_gate.get("fallback_occurred"):
+        return True
+    eff = getattr(record, "effective_strategy", None)
+    sel = getattr(record, "selected_strategy", None)
+    if eff is not None and sel is not None and eff != sel:
+        return True
+    opt_m = getattr(record, "optimized_measurement", None)
+    if opt_m is not None and getattr(opt_m, "strategy", None) and sel is not None and opt_m.strategy != sel:
+        return True
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Projection: → adaptive ExperienceRecord
 # ---------------------------------------------------------------------------
 
@@ -132,6 +156,7 @@ def to_experience_record(
     - Returns None if required data is missing (selection, source_hash, ir_features).
     - Never fabricates provenance or reward.
     - Requires actual measurement data for a positive reward.
+    - Week 14: Rejects records that experienced security fallback to avoid crediting rejected strategies.
 
     Parameters
     ----------
@@ -143,6 +168,12 @@ def to_experience_record(
     -------
     ExperienceRecord or None
     """
+    # Week 14: Refuse records that underwent security fallback
+    if _fallback_evidence(record):
+        if strict:
+            raise ValueError("RunRecord experienced security gate fallback; refusing to create ExperienceRecord")
+        return None
+
     try:
         from ..adaptive.schema import ADAPTIVE_SCHEMA_VERSION, ExperienceRecord, make_timestamp
         from ..adaptive.reward import DEFAULT_REWARD_CONFIG, compute_reward, is_performance_inconclusive
@@ -343,8 +374,8 @@ def to_agent_context(
         prog_id = record.source_file or record.source_hash or record.run_id
         source_hash = record.source_hash or ""
 
-        # Prepare comparison dict from regression (may be None → NOT_RUN)
-        comp_dict = record.regression_comparison
+        # Prepare comparison dict from regression (withheld if fallback occurred)
+        comp_dict = None if _fallback_evidence(record) else record.regression_comparison
 
         return build_agent_context(
             program_id=str(prog_id),
@@ -360,6 +391,8 @@ def to_agent_context(
                 "benchmark_status": record.benchmark_status.value,
                 "regression_status": record.regression_status.value,
                 "security_status": record.security_status.value,
+                "effective_strategy": record.effective_strategy or record.selected_strategy,
+                "fallback_occurred": _fallback_evidence(record),
                 "is_advisory_only": True,
             },
         )
@@ -435,6 +468,32 @@ def to_gui_view(record: RunRecord) -> dict[str, Any]:
         "is_advisory_only": True,  # ALWAYS True
     }
 
+    # Week 14 Provenance & Security Additions
+    fallback_occ = _fallback_evidence(record)
+    effective_strat = record.effective_strategy or record.selected_strategy
+    effective_strat_known = (record.effective_strategy is not None)
+
+    provenance_label = "SECURITY_GATE_FALLBACK" if fallback_occ else "ORIGINAL_SELECTION"
+    xai_prov = "Describes original selection"
+    agentic_prov = (
+        "Describes original selection (empirical evidence withheld)"
+        if fallback_occ
+        else "Describes original selection"
+    )
+
+    sec_notes = []
+    if record.security_result and isinstance(record.security_result, dict):
+        sec_notes = record.security_result.get("notes") or []
+    sec_scope = "SOURCE_SCAN" if any("scope=SOURCE_SCAN" in str(n) for n in sec_notes) else "OPTIMIZATION_CANDIDATE"
+
+    opt_sec = None
+    if isinstance(record.security_gate, dict):
+        opt_sec = record.security_gate.get("candidate_security")
+
+    agentic_quarantined = False
+    if isinstance(record.agentic_security, dict):
+        agentic_quarantined = bool(record.agentic_security.get("report_quarantined", False))
+
     return {
         "run_id": record.run_id,
         "created_at": record.created_at,
@@ -443,8 +502,14 @@ def to_gui_view(record: RunRecord) -> dict[str, Any]:
 
         # Selection
         "selected_strategy": record.selected_strategy,
+        "effective_strategy": effective_strat,
+        "effective_strategy_known": effective_strat_known,
+        "fallback_occurred": fallback_occ,
         "selection_status": record.selection_status.value,
         "selection_provenance": record.selection_provenance.value,
+        "provenance": provenance_label,
+        "xai_provenance": xai_prov,
+        "agentic_provenance": agentic_prov,
 
         # Program profile
         "profile_status": record.profile_status.value,
@@ -475,7 +540,9 @@ def to_gui_view(record: RunRecord) -> dict[str, Any]:
 
         # Security — explicit NOT_RUN unless analyzer ran
         "security": security_summary,
+        "security_scope": sec_scope,
         "security_gate": record.security_gate,
+        "optimized_security": opt_sec,
         "security_events_summary": {
             "total_events": len(record.security_events),
             "blocked_events": sum(1 for e in record.security_events if e.get("blocked", False)),
@@ -486,7 +553,117 @@ def to_gui_view(record: RunRecord) -> dict[str, Any]:
 
         # Agentic (advisory)
         "agentic": agentic_summary,
+        "agentic_quarantine_status": agentic_quarantined,
 
         # Overall
         "overall_status": record.overall_status.value,
     }
+
+
+# ---------------------------------------------------------------------------
+# Projection: → GUI display text & reference validation helpers (Week 14)
+# ---------------------------------------------------------------------------
+
+def security_display_text(view: dict[str, Any]) -> str:
+    """
+    Format a concise, authoritative security status string for GUI display.
+    Guarantees:
+      - PRESERVED candidate security displays '✓ Preserved'
+      - UNKNOWN / ERROR / unverified displays 'Unverified (...)'
+      - NOT_APPLICABLE displays 'No guards to preserve'
+      - REDUCED displays 'Guards reduced (warning)'
+      - Fallback appends ' [fallback → <effective>]'
+      - Source-only security never starts with '✓'
+    """
+    if not isinstance(view, dict):
+        return "—"
+
+    fallback_occ = bool(view.get("fallback_occurred", False))
+    effective_strat = view.get("effective_strategy") or view.get("selected_strategy") or "unknown"
+    sec_scope = view.get("security_scope", "OPTIMIZATION_CANDIDATE")
+    sec_dict = view.get("security") or {}
+    sec_status = sec_dict.get("status")
+    sec_verdict = sec_dict.get("verdict")
+    sec_gate = view.get("security_gate")
+
+    # If security did not run
+    if sec_status == "NOT_RUN" and not sec_gate:
+        return "Not Analyzed"
+
+    # Check candidate/gate verdict first if available
+    cand_sec = view.get("optimized_security")
+    if not cand_sec and isinstance(sec_gate, dict):
+        cand_sec = sec_gate.get("candidate_security")
+
+    gate_unverified = bool(sec_gate.get("unverified", False)) if isinstance(sec_gate, dict) else False
+
+    verdict = None
+    if isinstance(cand_sec, dict):
+        verdict = cand_sec.get("verdict")
+    elif cand_sec and hasattr(cand_sec, "verdict"):
+        verdict = cand_sec.verdict
+
+    if not verdict:
+        verdict = sec_verdict
+
+    if hasattr(verdict, "value"):
+        verdict = verdict.value
+    elif verdict is not None:
+        verdict = str(verdict)
+
+    # Determine base text
+    if sec_scope == "SOURCE_SCAN" and not sec_gate:
+        # Source-only scan: MUST NEVER start with '✓'
+        if verdict == "PRESERVED":
+            base = "Source guards intact (source scan)"
+        elif verdict == "REDUCED":
+            base = "Guards reduced (warning)"
+        elif verdict == "NOT_APPLICABLE":
+            base = "No guards to preserve"
+        elif verdict in ("UNKNOWN", "ERROR") or sec_status == "UNKNOWN":
+            base = f"Unverified ({verdict or 'source scan'})"
+        else:
+            base = f"Source scan: {verdict or 'unknown'}"
+    else:
+        # Optimization candidate verification
+        if gate_unverified or verdict in ("UNKNOWN", "ERROR") or sec_status == "UNKNOWN":
+            tag = verdict if verdict in ("UNKNOWN", "ERROR") else "inconclusive"
+            base = f"Unverified ({tag})"
+        elif verdict == "PRESERVED":
+            base = "✓ Preserved"
+        elif verdict == "NOT_APPLICABLE":
+            base = "No guards to preserve"
+        elif verdict == "REDUCED":
+            base = "Guards reduced (warning)"
+        elif verdict == "ELIMINATED":
+            base = "Guards eliminated (rejected)"
+        else:
+            base = f"Security: {verdict or '—'}"
+
+    if fallback_occ:
+        base += f" [fallback → {effective_strat}]"
+
+    return base
+
+
+def validate_reference_run(
+    view: dict[str, Any],
+    expected_strategy: str,
+) -> tuple[bool, str]:
+    """
+    Validate that a reference run (such as -O3) was actually executed with
+    the expected strategy without substitution or fallback.
+
+    Returns
+    -------
+    (is_valid, reason) : tuple[bool, str]
+    """
+    if not isinstance(view, dict):
+        return False, "Invalid view model: not a dict"
+    if view.get("fallback_occurred"):
+        eff = view.get("effective_strategy", "unknown")
+        return False, f"Fallback occurred in reference run (effective={eff})"
+    effective = view.get("effective_strategy") or view.get("selected_strategy")
+    if effective != expected_strategy:
+        return False, f"Strategy mismatch: expected {expected_strategy}, got {effective}"
+    return True, "OK"

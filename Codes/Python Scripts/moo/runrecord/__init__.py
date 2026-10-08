@@ -46,6 +46,8 @@ from .projections import (
     to_experience_record,
     to_agent_context,
     to_gui_view,
+    security_display_text,
+    validate_reference_run,
 )
 from .orchestrator import PipelineOrchestrator
 
@@ -61,5 +63,7 @@ __all__ = [
     "to_experience_record",
     "to_agent_context",
     "to_gui_view",
+    "security_display_text",
+    "validate_reference_run",
     "PipelineOrchestrator",
 ]
