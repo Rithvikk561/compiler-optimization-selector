@@ -298,7 +298,8 @@ class CompilerGUI:
                     self.root.after(0, lambda: self._update_profile_ui(None))
 
                 if record.decision_trace:
-                    self._log(f"Decision Trace: {record.decision_trace.get('selection_reason', '')}")
+                    reason = self._get_trace_field(record.decision_trace, "selection_reason", "")
+                    self._log(f"Decision Trace: {reason}")
 
                 # Update baseline (-O0) results from canonical RunRecord
                 base_timing = view.get("baseline_timing")
@@ -366,23 +367,50 @@ class CompilerGUI:
     def finish(self):
         self.running=False; self.progress.stop(); self.status.set("Ready")
 
+    @staticmethod
+    def _get_trace_field(trace, field, default=None):
+        if trace is None:
+            return default
+        if isinstance(trace, dict):
+            return trace.get(field, default)
+        if hasattr(trace, field):
+            return getattr(trace, field, default)
+        if hasattr(trace, "get"):
+            try:
+                return trace.get(field, default)
+            except Exception:
+                pass
+        return default
+
     def refresh(self):
         o=self.results["o3"]; a=self.results["ai"]
         self.dtime.config(text=self.fmt_time(a["time"])); self.dsize.config(text=self.fmt_size(a["size"]))
         self.dsec.config(text=a["security"]); self.dstrategy.config(text="AI Selected" if self.strategy!="-O3" else "—")
         label = self.strategy
         trace = self.last_trace
-        if trace and trace.ai_choice_was_pareto_optimal is False:
-            label += f"\n[MOO: AI preferred '{trace.ai_top_choice}' — not Pareto-optimal]"
-        elif trace and trace.moo_active and trace.ai_choice_was_pareto_optimal:
-            label += f"\n[MOO: AI choice was Pareto-optimal]"
-        elif trace and not trace.moo_active:
-            label += f"\n[No MOO data — pure AI selection]"
+        try:
+            if trace:
+                pareto_opt = self._get_trace_field(trace, "ai_choice_was_pareto_optimal")
+                moo_active = self._get_trace_field(trace, "moo_active")
+                ai_top = self._get_trace_field(trace, "ai_top_choice", "") or ""
+                if pareto_opt is False:
+                    label += f"\n[MOO: AI preferred '{ai_top}' — not Pareto-optimal]"
+                elif moo_active and pareto_opt:
+                    label += f"\n[MOO: AI choice was Pareto-optimal]"
+                elif moo_active is False:
+                    label += f"\n[No MOO data — pure AI selection]"
+        except Exception as e:
+            self._log(f"WARNING: Error formatting MOO strategy label: {e}")
         self.strategy_text.config(text=label)
 
         opt_text = self.strategy
-        if trace and trace.selection_method:
-            opt_text += f"  [{trace.selection_method}]"
+        try:
+            if trace:
+                method = self._get_trace_field(trace, "selection_method")
+                if method:
+                    opt_text += f"  [{method}]"
+        except Exception as e:
+            self._log(f"WARNING: Error formatting selection method label: {e}")
         self.optlabel.config(text=opt_text)
         vals=[("time",self.fmt_time(o["time"]),self.fmt_time(a["time"]),self.change(o["time"],a["time"])),
               ("size",self.fmt_size(o["size"]),self.fmt_size(a["size"]),self.change(o["size"],a["size"])),
