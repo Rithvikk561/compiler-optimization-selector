@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <meta content="web_dashboard" name="shell-type"/>
+  <title>TOACD Compiler Research Suite — Professional Navy</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              50: '#f8fafc',
+              100: '#f1f5f9',
+              200: '#e2e8f0',
+              300: '#cbd5e1',
+              400: '#94a3b8',
+              500: '#64748b',
+              600: '#475569',
+              700: '#334155',
+              800: '#1e293b',
+              900: '#0f172a',
+              950: '#020617',
+            },
+            accent: {
+              DEFAULT: '#2563eb',
+              hover: '#1d4ed8',
+              light: '#dbeafe',
+              border: '#93c5fd',
+              active: '#1e40af'
+            },
+            surface: {
+              base: '#f8fafc',
+              card: '#ffffff',
+              panel: '#f1f5f9',
+              subtle: '#e2e8f0',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @layer base {
+      html, body { margin:0; padding:0; }
+      body { overscroll-behavior: none; }
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    .dark .custom-scroll::-webkit-scrollbar-thumb {
+      background: #475569;
+    }
+    .tab-content {
+      display: none;
+      animation: fadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(2px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .card-body-expandable {
+      transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+    }
+
+    /* Polished, restrained hover interactions */
+    .card-hover {
+      transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1),
+                  box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1),
+                  border-color 200ms cubic-bezier(0.16, 1, 0.3, 1);
+      will-change: transform, box-shadow;
+    }
+    .card-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+      border-color: #94a3b8;
+    }
+    .card-hover-accent:hover {
+      border-color: #2563eb !important;
+      box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.14), 0 8px 10px -6px rgba(37, 99, 235, 0.06);
+    }
+
+    /* Agent Message Card hover */
+    .msg-card-hover {
+      transition: transform 180ms ease-out, border-color 180ms ease-out, box-shadow 180ms ease-out;
+    }
+    .msg-card-hover:hover {
+      transform: translateX(2px);
+      border-color: #93c5fd;
+      box-shadow: 0 2px 6px -1px rgba(37, 99, 235, 0.1);
+    }
+
+    /* Interactive button hover */
+    .btn-hover {
+      transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+                  box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1),
+                  background-color 160ms ease,
+                  border-color 160ms ease;
+    }
+    .btn-hover:not(:disabled):hover {
+      transform: translateY(-1px);
+    }
+    .btn-hover:not(:disabled):active {
+      transform: translateY(0);
+    }
+    .btn-hover:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    /* Nav button hover */
+    .nav-btn-hover {
+      transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+    }
+    .nav-btn-hover:hover {
+      transform: translateX(2px);
+    }
+
+    /* Accordion header hover */
+    .accordion-header-hover {
+      transition: background-color 180ms ease, border-color 180ms ease;
+    }
+    .accordion-header-hover:hover {
+      background-color: #f1f5f9;
+    }
+
+    /* Toast Notification System (Phase 1A) */
+    #toast-container {
+      bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+      right: calc(1rem + env(safe-area-inset-right, 0px));
+    }
+    .toast-enter {
+      animation: toastSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .toast-exit {
+      animation: toastSlideOut 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
+    }
+    @keyframes toastSlideIn {
+      from {
+        opacity: 0;
+        transform: translate3d(100%, 0, 0) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+    }
+    @keyframes toastSlideOut {
+      from {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+      }
+      to {
+        opacity: 0;
+        transform: translate3d(100%, 0, 0) scale(0.92);
+      }
+    }
+
+    /* Respect prefers-reduced-motion for accessibility */
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+        transform: none !important;
+      }
+    }
+
+    /* Code editor line numbering & textarea sync */
+    .editor-wrapper {
+      position: relative;
+      display: flex;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      line-height: 22px;
+      background: #ffffff;
+    }
+    .line-numbers {
+      width: 44px;
+      padding: 12px 8px 12px 0;
+      text-align: right;
+      color: #94a3b8;
+      background: #f8fafc;
+      border-right: 1px solid #e2e8f0;
+      user-select: none;
+      overflow: hidden;
+      white-space: pre;
+    }
+    .code-textarea {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      outline: none;
+      resize: none;
+      background: transparent;
+      color: #0f172a;
+      white-space: pre;
+      overflow-x: auto;
+      tab-size: 2;
+    }
+  </style>
+</head>
+<body class="bg-navy-50 font-sans text-navy-900 antialiased selection:bg-accent/15 selection:text-accent">
+
+  <!-- Desktop IDE App Chrome / Mini Titlebar -->
+  <div class="h-6 w-full bg-navy-900 border-b border-navy-800 flex items-center justify-between px-3 text-[11px] font-mono text-navy-300 select-none z-50 fixed top-0 left-0 right-0">
+    <div class="flex items-center gap-2">
+      <div class="flex items-center gap-1.5">
+        <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80 hover:bg-rose-500 transition-colors cursor-pointer inline-block"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80 hover:bg-amber-500 transition-colors cursor-pointer inline-block"></span>
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80 hover:bg-emerald-500 transition-colors cursor-pointer inline-block"></span>
+      </div>
+      <span class="text-navy-600">|</span>
+      <span class="text-[10px] tracking-wide text-navy-300 font-medium" id="daemon-pid">TOACD-DAEMON // PID: LIVE [RT-ACTIVE]</span>
+    </div>
+    <div class="flex items-center gap-3 text-[11px]">
+      <span class="flex items-center gap-1.5 font-medium text-emerald-400" id="toolchain-engine-pill">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="toolchain-engine-text">LLVM Engine Connected</span>
+      </span>
+      <span class="text-navy-600">·</span>
+      <span class="text-navy-400" id="host-platform-text">Host: Windows x86_64</span>
+    </div>
+  </div>
+
+  <!-- PERSISTENT SIDEBAR -->
+  <aside class="fixed left-0 top-6 h-[calc(100%-1.5rem)] w-64 bg-navy-900 text-white z-40 flex flex-col justify-between p-3 border-r border-navy-800 shadow-sm">
+    <div class="flex flex-col gap-4">
+      <!-- Brand & Version -->
+      <div class="px-2 pt-1 border-b border-navy-800/80 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-accent shadow-[0_0_8px_rgba(37,99,235,0.8)]"></span>
+          <span class="font-bold text-[17px] tracking-tight text-white font-mono">TOACD</span>
+          <span class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-accent/20 text-blue-300 border border-accent/40 font-semibold uppercase">Pro IDE</span>
+        </div>
+        <p class="text-[11px] text-navy-400 mt-0.5">v2.4 Compiler Research Suite</p>
+      </div>
+
+      <!-- Main Navigation with TAB SWITCHING -->
+      <nav class="flex flex-col gap-1" id="sidebar-nav">
+        <!-- Tab 1: Code -->
+        <button class="w-full text-left flex items-center justify-between px-3 py-2 rounded text-[13px] font-medium transition-all bg-accent text-white shadow-sm shadow-blue-900/30 font-sans cursor-pointer" id="nav-code" onclick="switchTab('code')">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[17px]">code</span>
+            <span>Code</span>
+          </div>
+          <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-black/25 text-white/90 tracking-wider">src</span>
+        </button>
+
+        <!-- Tab 2: AI Analysis -->
+        <button class="w-full text-left flex items-center justify-between px-3 py-2 rounded text-[13px] font-medium text-navy-300 hover:bg-navy-800 hover:text-white transition-all font-sans cursor-pointer" id="nav-ai-analysis" onclick="switchTab('ai-analysis')">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[17px]">psychology</span>
+            <span>AI Analysis</span>
+          </div>
+          <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-navy-800 text-blue-300 font-semibold border border-navy-700">6 Reports</span>
+        </button>
+
+        <!-- Tab 3: Optimized Code -->
+        <button class="w-full text-left flex items-center justify-between px-3 py-2 rounded text-[13px] font-medium text-navy-300 hover:bg-navy-800 hover:text-white transition-all font-sans cursor-pointer" id="nav-optimized-code" onclick="switchTab('optimized-code')">
+          <div class="flex items-center gap-2.5">
+            <span class="material-symbols-outlined text-[17px]">terminal</span>
+            <span>Optimized Code</span>
+          </div>
+          <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-navy-800 text-slate-300 border border-navy-700" id="sidebar-opt-pill">LLVM IR</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Bottom Controls & System Health -->
+    <div class="flex flex-col gap-3 pt-2">
+      <div class="h-px w-full bg-navy-800"></div>
+
+      <!-- Multi-Agent Status Indicator -->
+      <div class="px-2 py-1.5 rounded bg-navy-800/80 border border-navy-700/60 flex items-center justify-between">
+        <span class="text-[11px] font-medium text-navy-300 flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-accent"></span>
+          <span>Multi-Agent Engine</span>
+        </span>
+        <span class="text-[10px] font-mono text-blue-300">6 Active Agents</span>
+      </div>
+
+      <!-- LLVM Daemon Status -->
+      <div class="flex items-center gap-2 px-2.5 py-2 rounded bg-navy-800/60 border border-navy-700/60">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" id="sidebar-llvm-dot"></span>
+        <div class="flex flex-col min-w-0">
+          <span class="text-[11px] text-white font-semibold truncate font-sans" id="sidebar-llvm-status">LLVM Clang & Opt · Ready</span>
+          <span class="font-mono text-[10px] text-navy-400 truncate" id="sidebar-llvm-target">Target: x86_64 MSVC</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN VIEWPORT WRAPPER -->
+  <div class="pl-64 pt-6">
+    <!-- TOP HEADER -->
+    <header class="fixed top-6 left-64 right-0 h-14 bg-white/95 backdrop-blur-md z-30 flex items-center justify-between px-6 border-b border-navy-200 shadow-sm">
+      <div class="flex items-center gap-3 overflow-hidden">
+        <span class="text-[11px] font-mono font-semibold px-2 py-0.5 rounded bg-navy-900 text-white tracking-wide uppercase shadow-xs">
+          Professional Navy
+        </span>
+        <span class="text-navy-300">/</span>
+        <div class="flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[17px] text-accent">folder_open</span>
+          <span class="text-[13px] font-semibold text-navy-900 font-mono truncate" id="header-filename">polybench-c / gemm.c</span>
+          <span class="text-[11px] font-mono text-navy-600 px-1.5 py-0.5 rounded bg-navy-100 border border-navy-200">(C99 / LLVM)</span>
+        </div>
+        <span class="text-navy-300 opacity-60">|</span>
+        <div class="flex items-center gap-1.5 text-navy-600">
+          <span class="material-symbols-outlined text-[16px] text-navy-500">memory</span>
+          <span class="text-[12px] font-medium text-navy-700" id="header-target">Target: x86_64 (AVX-512 / Zen4 / Raptorlake)</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1.5 text-[12px] font-medium text-navy-700 bg-navy-100 px-2.5 py-1 rounded border border-navy-200">
+          <span class="material-symbols-outlined text-[16px] text-accent">speed</span>
+          <span id="active-pipeline-flag">Pipeline: Idle / Ready</span>
+        </div>
+        <div class="w-8 h-8 rounded bg-navy-900 text-white flex items-center justify-center font-semibold text-[13px] border border-navy-700 shadow-xs" title="Researcher Profile">
+          <span class="material-symbols-outlined text-[18px]">person</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- VIEWS CONTAINER -->
+    <main class="relative pt-14 w-full px-6 bg-navy-50 min-h-[calc(100vh-5rem)]">
+
+      <!-- ============================================================== -->
+      <!-- TAB 1: CODE (MANDATORY 60/40 UPPER WORKSPACE SPLIT)            -->
+      <!-- ============================================================== -->
+      <section class="tab-content active py-4" id="tab-code">
+        <div class="flex flex-col w-full gap-5 pb-8">
+
+          <!-- Upper Section: EXACT 60/40 Split Workbench -->
+          <div class="flex flex-col lg:flex-row gap-5 items-stretch w-full">
+
+            <!-- LEFT 60%: SOURCE CODE EDITOR -->
+            <div class="w-full lg:w-[60%] flex flex-col bg-white rounded-lg shadow-xs border border-navy-200 overflow-hidden">
+
+              <!-- Editor Header Bar -->
+              <div class="bg-navy-100/90 px-4 py-2 flex flex-wrap items-center justify-between gap-2 border-b border-navy-200">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="material-symbols-outlined text-accent text-[17px]">terminal</span>
+                  <span class="text-[12px] font-semibold text-navy-900 truncate font-mono" id="editor-file-title">src/benchmarks/polybench/gemm.c</span>
+                  <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-navy-700 border border-navy-200 font-medium">C99</span>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <!-- Benchmark Sample Selector -->
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-[11px] font-mono text-navy-500 font-medium">Sample:</span>
+                    <select id="benchmark-select" class="text-[11px] font-mono bg-white border border-navy-200 rounded px-2 py-1 text-navy-800 cursor-pointer focus:outline-none focus:border-accent" onchange="onSampleSelected(this.value)">
+                      <option value="gemm">Polybench GEMM</option>
+                      <option value="tc1_loop_heavy">TC1: Loop Heavy</option>
+                      <option value="tc2_security_bounds">TC2: Security Bounds Check</option>
+                      <option value="tc3_math_intensive">TC3: Math Intensive</option>
+                      <option value="tc4_security_null">TC4: Security Null Overflow</option>
+                      <option value="bubble_sort">Bubble Sort</option>
+                    </select>
+                  </div>
+                  <span class="w-1 h-1 rounded-full bg-navy-300"></span>
+                  <span class="font-mono text-[11px] text-navy-500" id="editor-line-col-info">Lines: 42</span>
+                </div>
+              </div>
+
+              <!-- Gutter Callouts -->
+              <div class="bg-navy-50 px-4 py-1.5 flex flex-wrap items-center justify-between gap-3 border-b border-navy-200 text-[11px]">
+                <div class="flex items-center gap-1.5 text-accent font-semibold font-mono">
+                  <span class="material-symbols-outlined text-[14px]">all_inclusive</span>
+                  <span id="editor-pattern-hint">Affine loop nest candidate for SIMD / polyhedral tiling</span>
+                </div>
+                <div class="flex items-center gap-1.5 text-navy-700 font-semibold font-mono">
+                  <span class="material-symbols-outlined text-[14px] text-emerald-600">electric_bolt</span>
+                  <span id="editor-vector-hint">Vectorization potential: High</span>
+                </div>
+              </div>
+
+              <!-- Editable Source Code Canvas -->
+              <div class="editor-wrapper max-h-[460px] custom-scroll overflow-y-auto">
+                <div class="line-numbers custom-scroll" id="editor-line-numbers">1</div>
+                <textarea class="code-textarea custom-scroll font-mono" id="editor-textarea" spellcheck="false" placeholder="Write or paste C code here..."></textarea>
+              </div>
+            </div>
+
+            <!-- RIGHT 40%: AI ACTIVITY & MULTI-AGENT COMMUNICATION PANEL -->
+            <div class="w-full lg:w-[40%] flex flex-col justify-between bg-white rounded-lg shadow-xs p-4 border border-navy-200">
+              <div class="flex flex-col gap-3">
+
+                <!-- Panel Title -->
+                <div class="flex items-center justify-between pb-2 bg-navy-100/70 px-3 py-2 rounded border border-navy-200">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-accent text-[17px]">psychology</span>
+                    <h2 class="text-[11.5px] text-navy-900 font-bold tracking-wider uppercase font-mono">AI ACTIVITY / MULTI-AGENT COMMS</h2>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-[10px] font-mono text-navy-500 font-semibold" id="multiagent-status-label">Standby</span>
+                    <span class="w-2 h-2 rounded-full bg-slate-300" id="pipeline-status-pulse"></span>
+                  </div>
+                </div>
+
+                <!-- Workflow Step Checklist -->
+                <div class="grid grid-cols-2 gap-1.5" id="pipeline-steps-container" role="list" aria-label="Workflow Stages">
+                  <div class="flex items-center justify-between p-1.5 rounded bg-navy-50 border border-navy-200/60" id="step-profiling" role="listitem" data-status="pending" aria-label="1. Program Profile: Pending">
+                    <span class="text-[11px] text-navy-700 font-medium truncate">1. Program Profile</span>
+                    <span class="step-badge font-mono text-[9.5px] text-navy-400">Pending</span>
+                  </div>
+                  <div class="flex items-center justify-between p-1.5 rounded bg-navy-50 border border-navy-200/60" id="step-strategy" role="listitem" data-status="pending" aria-label="2. AI Strategy: Pending">
+                    <span class="text-[11px] text-navy-700 font-medium truncate">2. AI Strategy</span>
+                    <span class="step-badge font-mono text-[9.5px] text-navy-400">Pending</span>
+                  </div>
+                  <div class="flex items-center justify-between p-1.5 rounded bg-navy-50 border border-navy-200/60" id="step-reviewer" role="listitem" data-status="pending" aria-label="3. Reviewer Gate: Pending">
+                    <span class="text-[11px] text-navy-700 font-medium truncate">3. Reviewer Gate</span>
+                    <span class="step-badge font-mono text-[9.5px] text-navy-400">Pending</span>
+                  </div>
+                  <div class="flex items-center justify-between p-1.5 rounded bg-navy-50 border border-navy-200/60" id="step-security" role="listitem" data-status="pending" aria-label="4. Security Gate: Pending">
+                    <span class="text-[11px] text-navy-700 font-medium truncate">4. Security Gate</span>
+                    <span class="step-badge font-mono text-[9.5px] text-navy-400">Pending</span>
+                  </div>
+                  <div class="flex items-center justify-between p-1.5 rounded bg-navy-50 border border-navy-200/60" id="step-benchmark" role="listitem" data-status="pending" aria-label="5. Benchmark: Pending">
+                    <span class="text-[11px] text-navy-700 font-medium truncate">5. Benchmark</span>
+                    <span class="step-badge font-mono text-[9.5px] text-navy-400">Pending</span>
+                  </div>
+                  <div class="flex items-center justify-between p-1.5 rounded bg-navy-50 border border-navy-200/60" id="step-regression" role="listitem" data-status="pending" aria-label="6. Regression Audit: Pending">
+                    <span class="text-[11px] text-navy-700 font-medium truncate">6. Regression Audit</span>
+                    <span class="step-badge font-mono text-[9.5px] text-navy-400">Pending</span>
+                  </div>
+                </div>
+
+                <!-- Genuine Multi-Agent Message Stream with Independent Local Scrolling -->
+                <div class="flex flex-col gap-2">
+                  <div class="flex items-center justify-between px-1">
+                    <span class="text-[10px] uppercase font-mono font-bold tracking-wider text-navy-500">Structured Agent Message Feed</span>
+                    <span class="text-[10px] font-mono text-accent" id="msg-counter">0 messages</span>
+                  </div>
+
+                  <div class="p-2.5 rounded bg-navy-50 border border-navy-200 custom-scroll overflow-y-auto max-h-[260px] flex flex-col gap-2" id="agent-messages-container">
+                    <div class="text-center py-8 text-navy-400 text-[11.5px] font-mono">
+                      Awaiting execution. Run AI Optimized to stream live multi-agent communication.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Telemetry & Toolchain Live Bar -->
+              <div class="flex flex-col gap-2 pt-3 border-t border-navy-100 mt-2">
+                <div class="px-2.5 py-1.5 rounded bg-navy-100/70 flex items-center justify-between border border-navy-200">
+                  <div class="flex items-center gap-1.5 text-navy-600 text-[11px] font-mono">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span id="telemetry-opt-label">Optimization Selector: DQN + MOO</span>
+                  </div>
+                  <span class="font-mono text-[10.5px] text-accent font-semibold" id="telemetry-speedup-hint">Pareto Aware</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ACTION BUTTONS -->
+          <div class="flex flex-wrap items-center justify-between gap-3 bg-white px-5 py-3 rounded-lg shadow-xs border border-navy-200">
+            <div class="flex items-center gap-2 text-navy-600 text-[12.5px]">
+              <span class="material-symbols-outlined text-accent text-[18px]">tune</span>
+              <span>Execution engine: <strong class="text-navy-900 font-semibold">Multi-Agent Deliberation</strong> with Security Gate Enforcement</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <button class="px-4 py-2 rounded bg-navy-100 hover:bg-navy-200 text-navy-800 text-[12.5px] font-semibold transition-all shadow-xs active:scale-[0.98] flex items-center gap-1.5 border border-navy-300 font-sans cursor-pointer btn-hover disabled:opacity-50" id="btn-run-normal" onclick="runNormalExecution()" type="button">
+                <span class="material-symbols-outlined text-[17px] text-navy-600">play_arrow</span>
+                <span>Run Normal (-O3)</span>
+              </button>
+              <button class="px-4 py-2 rounded bg-accent hover:bg-accent-hover text-white text-[12.5px] font-semibold transition-all shadow-sm active:scale-[0.98] flex items-center gap-1.5 font-sans cursor-pointer btn-hover disabled:opacity-50" id="btn-run-ai" onclick="runAIOptimizedExecution()" type="button">
+                <span class="material-symbols-outlined text-[17px]">bolt</span>
+                <span>Run AI Optimized</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- COMPILATION / SYNTAX DIAGNOSTICS BAR -->
+          <div class="bg-white rounded-lg shadow-xs overflow-hidden border border-navy-200 transition-all" id="compilation-bar">
+            <div class="bg-navy-100/90 px-4 py-2 flex items-center justify-between border-b border-navy-200">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-emerald-600 text-[17px]" id="diag-icon">verified</span>
+                <h3 class="text-[11.5px] font-bold text-navy-900 tracking-wider uppercase font-mono">COMPILATION / SYNTAX DIAGNOSTICS</h3>
+              </div>
+              <span class="font-mono text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300" id="diagnostics-badge">Ready for compile</span>
+            </div>
+            <div class="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-white">
+              <div class="flex items-start gap-3">
+                <div class="w-7 h-7 rounded bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0 mt-0.5" id="build-status-box">
+                  <span class="material-symbols-outlined text-[18px]">check</span>
+                </div>
+                <div class="flex flex-col gap-0.5">
+                  <div class="font-semibold text-navy-900 text-[13px] flex items-center gap-2 font-mono">
+                    <span id="build-status-text">Toolchain status: LLVM Clang & Opt verified</span>
+                    <span class="font-mono text-[10.5px] font-normal text-navy-600 px-1.5 py-0.5 rounded bg-navy-100 border border-navy-200" id="build-ir-format">Canonical SSA</span>
+                  </div>
+                  <p class="text-navy-600 text-[12.5px]" id="build-details-text">
+                    Select a sample or paste custom C source code. Compiler will execute benchmark measurements in isolated run workspaces.
+                  </p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 shrink-0 self-end md:self-center font-mono text-[11px]" id="opt-passes-tags">
+                <span class="text-navy-500">Pipeline:</span>
+                <span class="px-2 py-0.5 rounded bg-navy-100 border border-navy-200 text-navy-800 font-medium" id="opt-pass-tag-1">DQN Policy</span>
+                <span class="px-2 py-0.5 rounded bg-navy-100 border border-navy-200 text-navy-800 font-medium" id="opt-pass-tag-2">Security Gate</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- EXPERIMENTAL ANALYSIS (Three Columns with Collapsible/Expandable Detailed Breakdown) -->
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between px-1">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-accent text-[20px]">analytics</span>
+                <h2 class="text-[17px] text-navy-900 font-bold tracking-tight font-sans">EXPERIMENTAL ANALYSIS</h2>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="text-[11.5px] text-navy-500 font-mono" id="experiment-runs-subtitle">Measurements via isolated benchmarks</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 items-start">
+
+              <!-- CARD 1: ORIGINAL / NORMAL RESULT -->
+              <div class="bg-white rounded-lg shadow-xs border border-navy-200 overflow-hidden flex flex-col card-hover" id="card-wrap-1">
+                <button class="w-full p-4 flex items-center justify-between text-left hover:bg-navy-50/70 transition-colors border-b border-navy-100 cursor-pointer" onclick="toggleExperimentCard(1)" type="button">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="w-2 h-2 rounded-full bg-navy-500 shrink-0"></span>
+                    <span class="text-[13px] font-bold text-navy-900 truncate">1. ORIGINAL / NORMAL RESULT</span>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <span class="font-mono text-[10.5px] px-2 py-0.5 rounded bg-navy-100 text-navy-700 font-medium border border-navy-200">Baseline (-O3 / -O0)</span>
+                    <span class="material-symbols-outlined text-[18px] text-navy-500 transition-transform duration-200" id="card-chevron-1">expand_more</span>
+                  </div>
+                </button>
+
+                <div class="p-3 bg-navy-50/50 flex items-center justify-between border-b border-navy-100">
+                  <div class="flex flex-col">
+                    <span class="text-[11px] text-navy-500 font-mono">Execution Time</span>
+                    <span class="text-[16px] font-bold text-navy-900 font-mono" id="card1-time">—</span>
+                  </div>
+                  <div class="flex flex-col text-right">
+                    <span class="text-[11px] text-navy-500 font-mono">Status</span>
+                    <span class="text-[13px] font-semibold text-navy-700 font-mono" id="card1-status">Awaiting run</span>
+                  </div>
+                </div>
+
+                <div class="card-body-expandable max-h-[600px] opacity-100 overflow-hidden transition-all bg-white" id="card-body-1">
+                  <div class="p-3.5 custom-scroll overflow-y-auto max-h-60 pr-1 flex flex-col gap-2.5 font-mono text-[11.5px]">
+                    <div class="flex justify-between py-1 border-b border-navy-100">
+                      <span class="text-navy-500">Code Size:</span>
+                      <span class="font-semibold text-navy-900" id="card1-size">—</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-navy-100">
+                      <span class="text-navy-500">Security Gate:</span>
+                      <span class="font-semibold text-navy-700" id="card1-security">Standard baseline</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-navy-100">
+                      <span class="text-navy-500">Timing Reliability:</span>
+                      <span class="font-semibold text-navy-700" id="card1-reliability">—</span>
+                    </div>
+                    <div class="flex justify-between py-1">
+                      <span class="text-navy-500">Measurement Status:</span>
+                      <span class="font-semibold text-navy-700" id="card1-meas-status">NOT_RUN</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- CARD 2: AI OPTIMIZED RESULT -->
+              <div class="bg-white rounded-lg shadow-xs border-2 border-accent/40 overflow-hidden flex flex-col card-hover card-hover-accent" id="card-wrap-2">
+                <button class="w-full p-4 flex items-center justify-between text-left hover:bg-navy-50/70 transition-colors border-b border-navy-100 cursor-pointer" onclick="toggleExperimentCard(2)" type="button">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="w-2 h-2 rounded-full bg-accent shrink-0"></span>
+                    <span class="text-[13px] font-bold text-navy-900 truncate">2. AI OPTIMIZED RESULT</span>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <span class="font-mono text-[10.5px] px-2 py-0.5 rounded bg-blue-100 text-accent font-semibold border border-blue-200" id="card2-strategy-badge">AI Strategy</span>
+                    <span class="material-symbols-outlined text-[18px] text-navy-500 transition-transform duration-200" id="card-chevron-2">expand_more</span>
+                  </div>
+                </button>
+
+                <div class="p-3 bg-blue-50/40 flex items-center justify-between border-b border-navy-100">
+                  <div class="flex flex-col">
+                    <span class="text-[11px] text-navy-500 font-mono">Execution Time</span>
+                    <span class="text-[16px] font-bold text-accent font-mono" id="card2-time">—</span>
+                  </div>
+                  <div class="flex flex-col text-right">
+                    <span class="text-[11px] text-navy-500 font-mono">Status</span>
+                    <span class="text-[13px] font-semibold text-accent font-mono" id="card2-status">Awaiting run</span>
+                  </div>
+                </div>
+
+                <div class="card-body-expandable max-h-[600px] opacity-100 overflow-hidden transition-all bg-white" id="card-body-2">
+                  <div class="p-3.5 custom-scroll overflow-y-auto max-h-60 pr-1 flex flex-col gap-2.5 font-mono text-[11.5px]">
+                    <div class="flex justify-between py-1 border-b border-navy-100">
+                      <span class="text-navy-500">Selected Strategy:</span>
+                      <span class="font-semibold text-accent" id="card2-selected-strat">—</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-navy-100">
+                      <span class="text-navy-500">Effective Strategy:</span>
+                      <span class="font-semibold text-navy-900" id="card2-effective-strat">—</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-navy-100">
+                      <span class="text-navy-500">Security Gate:</span>
+                      <span class="font-semibold text-emerald-600" id="card2-security">—</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-navy-100">
+                      <span class="text-navy-500">Optimized Size:</span>
+                      <span class="font-semibold text-navy-900" id="card2-size">—</span>
+                    </div>
+                    <div class="flex justify-between py-1">
+                      <span class="text-navy-500">Fallback Triggered:</span>
+                      <span class="font-semibold text-navy-700" id="card2-fallback">No</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- CARD 3: PERFORMANCE COMPARISON -->
+              <div class="bg-white rounded-lg shadow-xs border border-navy-200 overflow-hidden flex flex-col card-hover" id="card-wrap-3">
+                <button class="w-full p-4 flex items-center justify-between text-left hover:bg-navy-50/70 transition-colors border-b border-navy-100 cursor-pointer" onclick="toggleExperimentCard(3)" type="button">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0" id="card3-dot"></span>
+                    <span class="text-[13px] font-bold text-navy-900 truncate">3. PERFORMANCE COMPARISON</span>
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <span class="font-mono text-[10.5px] px-2 py-0.5 rounded bg-navy-100 text-navy-700 font-semibold border border-navy-200" id="card3-verdict-badge">Comparison</span>
+                    <span class="material-symbols-outlined text-[18px] text-navy-500 transition-transform duration-200" id="card-chevron-3">expand_more</span>
+                  </div>
+                </button>
+
+                <div class="p-3 bg-navy-50/50 flex items-center justify-between border-b border-navy-100">
+                  <div class="flex flex-col">
+                    <span class="text-[11px] text-navy-500 font-mono">Speedup Delta</span>
+                    <span class="text-[16px] font-bold text-navy-900 font-mono" id="card3-speedup">—</span>
+                  </div>
+                  <div class="flex flex-col text-right">
+                    <span class="text-[11px] text-navy-500 font-mono">Verdict</span>
+                    <span class="text-[13px] font-semibold text-navy-700 font-mono" id="card3-verdict">Awaiting execution</span>
+                  </div>
+                </div>
+
+                <div class="card-body-expandable max-h-[600px] opacity-100 overflow-hidden transition-all bg-white" id="card-body-3">
+                  <div class="p-3.5 custom-scroll overflow-y-auto max-h-60 pr-1 flex flex-col gap-2.5 font-mono text-[11.5px]">
+                    <div class="flex justify-between py-1 border-b border-navy-100">
+                      <span class="text-navy-500">Execution Delta:</span>
+                      <span class="font-semibold text-navy-900" id="card3-delta-time">—</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-navy-100">
+                      <span class="text-navy-500">Binary Size Delta:</span>
+                      <span class="font-semibold text-navy-900" id="card3-delta-size">—</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-navy-100">
+                      <span class="text-navy-500">Regression Status:</span>
+                      <span class="font-semibold text-navy-700" id="card3-regression-status">—</span>
+                    </div>
+                    <div class="flex justify-between py-1">
+                      <span class="text-navy-500">Significance:</span>
+                      <span class="font-semibold text-navy-700" id="card3-significance">Empirical Run</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <!-- TAB 2: AI ANALYSIS (6 ACCORDION SECTIONS FROM STITCH DESIGN)   -->
+      <!-- ============================================================== -->
+      <section class="tab-content py-4" id="tab-ai-analysis">
+        <div class="flex flex-col w-full gap-5 pb-8">
+
+          <!-- Banner with Expand/Collapse All -->
+          <div class="bg-white p-5 rounded-lg shadow-xs border border-navy-200 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-1.5 text-accent mb-1 font-mono">
+                <span class="material-symbols-outlined text-[18px]">verified</span>
+                <span class="text-[11px] font-bold uppercase tracking-wider">Formal Verification & XAI</span>
+              </div>
+              <h2 class="text-[18px] font-bold text-navy-900 font-sans tracking-tight">AI Compiler Optimization Audit Suite</h2>
+              <p class="text-[13px] text-navy-600 mt-0.5">
+                Dynamic execution traces, deterministic program profiling, MOO Pareto frontier, security gates, and explainable AI weights.
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="px-3 py-1.5 rounded bg-navy-100 hover:bg-navy-200 text-navy-800 text-[12px] font-semibold transition-all shadow-xs border border-navy-200 font-sans cursor-pointer btn-hover" onclick="expandAllReports()">
+                Expand All
+              </button>
+              <button class="px-3 py-1.5 rounded bg-navy-100 hover:bg-navy-200 text-navy-800 text-[12px] font-semibold transition-all shadow-xs border border-navy-200 font-sans cursor-pointer btn-hover" onclick="collapseAllReports()">
+                Collapse All
+              </button>
+            </div>
+          </div>
+
+          <!-- PLAIN-ENGLISH WORKFLOW REPORT (PHASE 1C) -->
+          <div id="workflow-report-container" class="space-y-4">
+            <!-- Empty Placeholder -->
+            <div class="bg-white rounded-lg shadow-xs border border-navy-200 p-6 text-center text-navy-500 font-sans" id="workflow-report-placeholder">
+              <div class="w-10 h-10 rounded-full bg-navy-100 text-accent flex items-center justify-center mx-auto mb-2">
+                <span class="material-symbols-outlined text-[24px]">description</span>
+              </div>
+              <h3 class="text-[14px] font-bold text-navy-900 font-sans">Plain-English Workflow Report</h3>
+              <p class="text-[12px] text-navy-500 max-w-md mx-auto mt-1">
+                Run either Normal Execution (-O3) or AI Optimized Execution to generate an evidence-aware, plain-English summary of what happened.
+              </p>
+            </div>
+
+            <!-- Active Report Card (Hidden until run finishes) -->
+            <div class="hidden bg-white rounded-lg shadow-xs border border-navy-200 overflow-hidden divide-y divide-navy-100" id="workflow-report-card">
+
+              <!-- Report Header -->
+              <div class="p-4 bg-navy-900 text-white flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5">
+                  <span class="material-symbols-outlined text-accent text-[22px]">article</span>
+                  <div>
+                    <h2 class="text-[13px] font-bold tracking-wider uppercase font-mono text-white">PLAIN-ENGLISH WORKFLOW REPORT</h2>
+                    <div class="flex items-center gap-2 mt-0.5">
+                      <span class="text-[11px] font-mono text-navy-300" id="report-mode-badge">AI-Optimized Multi-Agent Run</span>
+                      <span class="text-[11px] font-mono text-navy-400">·</span>
+                      <span class="text-[11px] font-mono text-navy-300" id="report-run-id">run_id</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <!-- Technical / Simple English Toggle (Feature 3) -->
+                  <div class="flex items-center gap-1 bg-navy-950 p-1 rounded border border-navy-700/60 shadow-inner" role="group" aria-label="Explanation view mode">
+                    <button type="button"
+                            id="toggle-view-simple"
+                            class="px-2.5 py-1 rounded text-[11px] font-sans font-semibold transition-all cursor-pointer bg-accent text-white shadow-xs"
+                            aria-pressed="true"
+                            title="Beginner-friendly narrative and plain-English explanations">
+                      <span class="flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-[14px]">school</span>
+                        <span>Simple English</span>
+                      </span>
+                    </button>
+                    <button type="button"
+                            id="toggle-view-technical"
+                            class="px-2.5 py-1 rounded text-[11px] font-sans font-medium text-navy-300 hover:text-white transition-all cursor-pointer"
+                            aria-pressed="false"
+                            title="Technical view with compiler pass flags, IR metrics, and exact evidence">
+                      <span class="flex items-center gap-1.5">
+                        <span class="material-symbols-outlined text-[14px]">terminal</span>
+                        <span>Technical View</span>
+                      </span>
+                    </button>
+                  </div>
+
+                  <span class="px-2.5 py-1 rounded font-mono text-[11px] font-bold bg-navy-800 text-blue-300 border border-navy-700" id="report-verdict-badge">VERIFIED</span>
+                </div>
+              </div>
+
+              <!-- Section A: Run Summary -->
+              <div class="p-4 bg-navy-50/50 flex flex-col gap-2">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-accent text-[18px]">summarize</span>
+                    <h3 class="text-[13px] font-bold text-navy-900 font-sans uppercase tracking-tight">Run Summary</h3>
+                  </div>
+                  <span class="px-2 py-0.5 rounded font-mono text-[10px] font-semibold bg-blue-100 text-accent border border-blue-200" id="report-conclusive-badge">Conclusive</span>
+                </div>
+                <h4 class="text-[14px] font-semibold text-navy-900 leading-snug" id="report-summary-headline">Workflow Summary Headline</h4>
+                <p class="text-[12.5px] text-navy-700 leading-relaxed font-sans" id="report-summary-text">Summary text explaining what the system actually executed.</p>
+                <div class="text-[11px] font-mono text-navy-500 mt-0.5" id="report-conclusive-reason">Reliability detail.</div>
+              </div>
+
+              <!-- FEATURE 1: PLAIN-ENGLISH WORKFLOW NARRATIVE ("What Happened During This Run?") -->
+              <div class="p-4 bg-white flex flex-col gap-3" id="workflow-narrative-section">
+                <div class="flex items-center justify-between gap-2 border-b border-navy-100/80 pb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-accent text-[20px]">history_edu</span>
+                    <div>
+                      <h3 class="text-[13px] font-bold text-navy-900 font-sans uppercase tracking-tight">What Happened During This Run?</h3>
+                      <p class="text-[11px] text-navy-500 font-sans mt-0.5" id="narrative-subtitle">Chronological sequence of actions, decisions, and verification milestones.</p>
+                    </div>
+                  </div>
+                  <span class="px-2 py-0.5 rounded font-mono text-[10px] font-semibold bg-navy-100 text-navy-800 border border-navy-200" id="narrative-progress-badge">7 / 7 STAGES</span>
+                </div>
+
+                <!-- Chronological Timeline Container -->
+                <div id="workflow-narrative-steps" class="space-y-3 pt-1">
+                  <!-- Dynamically populated steps 1 through 7 -->
+                </div>
+              </div>
+
+              <!-- Section B: Program Analysis -->
+              <div class="p-4 flex flex-col gap-2.5">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-accent text-[18px]">troubleshoot</span>
+                    <h3 class="text-[13px] font-bold text-navy-900 font-sans uppercase tracking-tight">Program Analysis (Deterministic Profiler)</h3>
+                  </div>
+                  <span class="px-1.5 py-0.5 rounded font-mono text-[9.5px] font-semibold bg-purple-100 text-purple-800 border border-purple-200">PROFILED</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="px-2 py-0.5 rounded font-mono text-[11px] font-bold bg-navy-100 text-navy-900 border border-navy-300" id="report-profile-label">loop_oriented</span>
+                  <span class="text-[12px] text-navy-600 font-sans" id="report-profile-explanation">Profile explanation.</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 font-mono text-[11px]">
+                  <div class="p-2 rounded bg-navy-50 border border-navy-200/70">
+                    <div class="text-navy-400 text-[10px] uppercase">Instructions</div>
+                    <div class="font-bold text-navy-900 text-[13px]" id="report-profile-insts">—</div>
+                  </div>
+                  <div class="p-2 rounded bg-navy-50 border border-navy-200/70">
+                    <div class="text-navy-400 text-[10px] uppercase">Loops</div>
+                    <div class="font-bold text-navy-900 text-[13px]" id="report-profile-loops">—</div>
+                  </div>
+                  <div class="p-2 rounded bg-navy-50 border border-navy-200/70">
+                    <div class="text-navy-400 text-[10px] uppercase">Memory Ops</div>
+                    <div class="font-bold text-navy-900 text-[13px]" id="report-profile-mem">—</div>
+                  </div>
+                  <div class="p-2 rounded bg-navy-50 border border-navy-200/70">
+                    <div class="text-navy-400 text-[10px] uppercase">Dominant</div>
+                    <div class="font-bold text-navy-900 text-[13px] truncate" id="report-profile-dominant">—</div>
+                  </div>
+                </div>
+                <p class="text-[11px] text-navy-500 italic mt-0.5" id="report-profile-note">Static LLVM IR measurements.</p>
+              </div>
+
+              <!-- Section C: Optimization Strategy -->
+              <div class="p-4 bg-navy-50/30 flex flex-col gap-2.5">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-accent text-[18px]">tune</span>
+                    <h3 class="text-[13px] font-bold text-navy-900 font-sans uppercase tracking-tight">Optimization Strategy & Transformations</h3>
+                  </div>
+                  <span class="px-1.5 py-0.5 rounded font-mono text-[9.5px] font-semibold bg-blue-100 text-blue-800 border border-blue-200">DECISION</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 font-sans text-[12.5px]">
+                  <div>
+                    <span class="text-navy-500">Selected Strategy:</span>
+                    <strong class="font-mono text-navy-900 ml-1" id="report-strategy-selected">-O2</strong>
+                  </div>
+                  <div>
+                    <span class="text-navy-500">Effective Strategy:</span>
+                    <strong class="font-mono text-emerald-700 ml-1" id="report-strategy-effective">-O2</strong>
+                  </div>
+                </div>
+                <div class="hidden p-2 rounded bg-amber-50 border border-amber-300 text-amber-900 text-[11.5px] font-sans" id="report-fallback-alert">
+                  <strong>Security Fallback:</strong> <span id="report-fallback-reason">Fallback details.</span>
+                </div>
+                <div class="text-[12px] text-navy-700 font-sans">
+                  <span class="text-navy-500 font-medium">Applied Transformations:</span>
+                  <span class="ml-1" id="report-strategy-transformations">Pipeline details.</span>
+                </div>
+                <div class="text-[12px] text-navy-700 font-sans">
+                  <span class="text-navy-500 font-medium">Decision Rationale:</span>
+                  <span class="italic text-navy-800 ml-1" id="report-strategy-rationale">Rationale text.</span>
+                </div>
+              </div>
+
+              <!-- Section D: Security and Correctness -->
+              <div class="p-4 flex flex-col gap-2.5">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-accent text-[18px]">verified_user</span>
+                    <h3 class="text-[13px] font-bold text-navy-900 font-sans uppercase tracking-tight">Security & Correctness Verification</h3>
+                  </div>
+                  <span class="px-1.5 py-0.5 rounded font-mono text-[9.5px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">VERIFIED</span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  <div class="p-2.5 rounded bg-white border border-navy-200 shadow-2xs flex flex-col gap-1">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[11px] font-bold text-navy-800 uppercase font-mono">Security Gate</span>
+                      <span class="px-1.5 py-0.2 rounded font-mono text-[10px] font-semibold" id="report-sec-badge">Passed</span>
+                    </div>
+                    <p class="text-[11.5px] text-navy-600 font-sans leading-tight mt-0.5" id="report-sec-details">AST scan & pointer bounds verified.</p>
+                  </div>
+                  <div class="p-2.5 rounded bg-white border border-navy-200 shadow-2xs flex flex-col gap-1">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[11px] font-bold text-navy-800 uppercase font-mono">Compilation</span>
+                      <span class="px-1.5 py-0.2 rounded font-mono text-[10px] font-semibold" id="report-comp-badge">Passed</span>
+                    </div>
+                    <p class="text-[11.5px] text-navy-600 font-sans leading-tight mt-0.5" id="report-comp-details">LLVM clean compile (code 0).</p>
+                  </div>
+                  <div class="p-2.5 rounded bg-white border border-navy-200 shadow-2xs flex flex-col gap-1">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[11px] font-bold text-navy-800 uppercase font-mono">Correctness</span>
+                      <span class="px-1.5 py-0.2 rounded font-mono text-[10px] font-semibold" id="report-corr-badge">Passed</span>
+                    </div>
+                    <p class="text-[11.5px] text-navy-600 font-sans leading-tight mt-0.5" id="report-corr-details">Output verified against reference.</p>
+                  </div>
+                  <div class="p-2.5 rounded bg-white border border-navy-200 shadow-2xs flex flex-col gap-1">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[11px] font-bold text-navy-800 uppercase font-mono">Fallback Handling</span>
+                      <span class="px-1.5 py-0.2 rounded font-mono text-[10px] font-semibold" id="report-fb-badge">None</span>
+                    </div>
+                    <p class="text-[11.5px] text-navy-600 font-sans leading-tight mt-0.5" id="report-fb-details">Original candidate deployed.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Section E: Performance Results -->
+              <div class="p-4 bg-navy-50/30 flex flex-col gap-2.5">
+                <div class="flex items-center justify-between gap-2">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-accent text-[18px]">speed</span>
+                    <h3 class="text-[13px] font-bold text-navy-900 font-sans uppercase tracking-tight">Performance Results & Authoritative Verdict</h3>
+                  </div>
+                  <span class="px-1.5 py-0.5 rounded font-mono text-[9.5px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">MEASURED</span>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-[11px]">
+                  <div class="p-2 rounded bg-white border border-navy-200">
+                    <div class="text-navy-400 text-[10px] uppercase">Baseline Time</div>
+                    <div class="font-bold text-navy-900 text-[13px]" id="report-perf-baseline">—</div>
+                  </div>
+                  <div class="p-2 rounded bg-white border border-navy-200">
+                    <div class="text-navy-400 text-[10px] uppercase">Optimized Time</div>
+                    <div class="font-bold text-emerald-700 text-[13px]" id="report-perf-optimized">—</div>
+                  </div>
+                  <div class="p-2 rounded bg-white border border-navy-200">
+                    <div class="text-navy-400 text-[10px] uppercase">Code Size</div>
+                    <div class="font-bold text-navy-900 text-[13px]" id="report-perf-size">—</div>
+                  </div>
+                  <div class="p-2 rounded bg-white border border-navy-200">
+                    <div class="text-navy-400 text-[10px] uppercase">Authoritative Verdict</div>
+                    <div class="font-bold text-[13px]" id="report-perf-verdict">PARITY</div>
+                  </div>
+                </div>
+                <div class="text-[12.5px] font-sans text-navy-800 flex items-center gap-1.5">
+                  <span class="text-navy-500 font-medium">Performance Delta:</span>
+                  <strong id="report-perf-speedup" class="text-accent">+0.0%</strong>
+                </div>
+                <p class="text-[12px] text-navy-600 font-sans" id="report-perf-verdict-desc">Verdict explanation.</p>
+                <div class="text-[11px] font-mono text-navy-500" id="report-perf-reliability-desc">Reliability explanation.</div>
+              </div>
+
+              <!-- Section F: Problems and Limitations -->
+              <div class="p-4 flex flex-col gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-accent text-[18px]">report_problem</span>
+                  <h3 class="text-[13px] font-bold text-navy-900 font-sans uppercase tracking-tight">Problems & Limitations</h3>
+                </div>
+                <div id="report-problems-container" class="space-y-1.5">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
+
+              <!-- Section G: Overall Conclusion -->
+              <div class="p-4 bg-navy-900 text-white rounded-b-lg flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-2 border-b border-navy-800 pb-2">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-emerald-400 text-[20px]">check_circle</span>
+                    <h3 class="text-[13px] font-bold text-white font-sans uppercase tracking-wider">Overall Conclusion</h3>
+                  </div>
+                  <span class="px-2 py-0.5 rounded font-mono text-[10px] font-bold bg-navy-800 text-emerald-300 border border-navy-700" id="report-conclusion-badge">SPEEDUP_VERIFIED</span>
+                </div>
+                <div>
+                  <h4 class="text-[14px] font-bold text-white font-sans" id="report-conclusion-headline">Conclusion Headline</h4>
+                  <p class="text-[12.5px] text-navy-200 font-sans mt-1 leading-relaxed" id="report-conclusion-text">Narrative conclusion distinguishing execution, security, compilation, correctness, and performance improvement.</p>
+                </div>
+                <!-- 5 Independent Dimension Checkmarks -->
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1 font-mono text-[10.5px]">
+                  <div class="flex items-center gap-1.5 text-navy-300" id="report-dim-execution">
+                    <span class="material-symbols-outlined text-[16px]">check</span>
+                    <span>Execution</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 text-navy-300" id="report-dim-compilation">
+                    <span class="material-symbols-outlined text-[16px]">check</span>
+                    <span>Compilation</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 text-navy-300" id="report-dim-security">
+                    <span class="material-symbols-outlined text-[16px]">check</span>
+                    <span>Security</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 text-navy-300" id="report-dim-correctness">
+                    <span class="material-symbols-outlined text-[16px]">check</span>
+                    <span>Correctness</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 text-navy-300" id="report-dim-speedup">
+                    <span class="material-symbols-outlined text-[16px]">check</span>
+                    <span>Speedup</span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- The 6 Accordions -->
+          <div class="space-y-4">
+
+            <!-- ACCORDION 1: PROGRAM PROFILE -->
+            <div class="bg-white rounded-lg shadow-xs border border-navy-200 overflow-hidden card-hover">
+              <button class="w-full p-3.5 bg-navy-100/70 hover:bg-navy-100 transition-colors flex items-center justify-between text-left cursor-pointer accordion-header-hover" onclick="toggleSectionAccordion('report-sec-1', this)">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-7 h-7 rounded bg-navy-900 text-white flex items-center justify-center font-bold font-mono text-[12px] shrink-0">
+                    01
+                  </div>
+                  <div>
+                    <h3 class="text-[14px] font-bold text-navy-900 font-sans">PROGRAM PROFILE</h3>
+                    <p class="font-mono text-[11px] text-navy-500 truncate" id="accordion-profile-subtitle">Deterministic LLVM IR feature analysis</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="font-mono text-[10.5px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold border border-emerald-300" id="accordion-profile-badge">Deterministic</span>
+                  <span class="material-symbols-outlined text-navy-500 transition-transform duration-200">expand_more</span>
+                </div>
+              </button>
+              <div class="card-body-expandable max-h-[500px] opacity-100 overflow-hidden transition-all bg-white" id="report-sec-1">
+                <div class="p-4 custom-scroll overflow-y-auto max-h-72 pr-1 border-t border-navy-200">
+                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center" id="profile-features-grid">
+                    <div class="p-3 rounded bg-navy-50 border border-navy-200/60">
+                      <span class="text-[10.5px] text-navy-500 font-mono block">Instructions</span>
+                      <span class="text-[18px] font-bold text-navy-900 block mt-0.5" id="pf-insts">—</span>
+                    </div>
+                    <div class="p-3 rounded bg-navy-50 border border-navy-200/60">
+                      <span class="text-[10.5px] text-navy-500 font-mono block">Loads & Stores</span>
+                      <span class="text-[18px] font-bold text-navy-900 block mt-0.5" id="pf-mem">—</span>
+                    </div>
+                    <div class="p-3 rounded bg-navy-50 border border-navy-200/60">
+                      <span class="text-[10.5px] text-navy-500 font-mono block">Branches</span>
+                      <span class="text-[18px] font-bold text-navy-900 block mt-0.5" id="pf-branches">—</span>
+                    </div>
+                    <div class="p-3 rounded bg-navy-50 border border-navy-200/60">
+                      <span class="text-[10.5px] text-navy-500 font-mono block">Vectorizable Loops</span>
+                      <span class="text-[18px] font-bold text-accent block mt-0.5" id="pf-loops">—</span>
+                    </div>
+                  </div>
+                  <div class="mt-3 p-3 rounded bg-navy-50 border border-navy-200/70 flex items-center justify-between">
+                    <div>
+                      <span class="text-[10px] font-mono text-navy-500 uppercase">Profile Classification:</span>
+                      <p class="text-[12.5px] text-navy-900 font-semibold mt-0.5" id="pf-dominant-label">Awaiting run</p>
+                    </div>
+                    <span class="text-[11px] text-accent font-semibold font-mono" id="pf-dominant-value"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ACCORDION 2: AI SELECTED STRATEGY -->
+            <div class="bg-white rounded-lg shadow-xs border border-navy-200 overflow-hidden card-hover">
+              <button class="w-full p-3.5 bg-navy-100/70 hover:bg-navy-100 transition-colors flex items-center justify-between text-left cursor-pointer accordion-header-hover" onclick="toggleSectionAccordion('report-sec-2', this)">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-7 h-7 rounded bg-navy-900 text-white flex items-center justify-center font-bold font-mono text-[12px] shrink-0">
+                    02
+                  </div>
+                  <div>
+                    <h3 class="text-[14px] font-bold text-navy-900 font-sans">AI SELECTED STRATEGY</h3>
+                    <p class="font-mono text-[11px] text-navy-500 truncate" id="accordion-strat-subtitle">DQN + MOO Optimization Selection</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="font-mono text-[10.5px] px-2 py-0.5 rounded bg-blue-100 text-accent font-semibold border border-blue-200" id="accordion-strat-badge">DQN Policy</span>
+                  <span class="material-symbols-outlined text-navy-500 transition-transform duration-200">expand_more</span>
+                </div>
+              </button>
+              <div class="card-body-expandable max-h-0 opacity-0 overflow-hidden transition-all bg-white" id="report-sec-2">
+                <div class="p-4 custom-scroll overflow-y-auto max-h-60 pr-1 flex flex-col gap-3 border-t border-navy-200">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="space-y-2 font-mono text-[12px]">
+                      <div class="flex justify-between p-2.5 bg-navy-50 rounded border border-navy-200/60">
+                        <span class="text-navy-600">Original Baseline Flag:</span>
+                        <span class="font-bold text-navy-900" id="strat-baseline">-O3 (Reference)</span>
+                      </div>
+                      <div class="flex justify-between p-2.5 bg-navy-50 rounded border border-navy-200/60">
+                        <span class="text-navy-600">Selected AI Strategy:</span>
+                        <span class="font-bold text-accent" id="strat-selected">—</span>
+                      </div>
+                      <div class="flex justify-between p-2.5 bg-navy-50 rounded border border-navy-200/60">
+                        <span class="text-navy-600">Effective Strategy:</span>
+                        <span class="font-bold text-navy-900" id="strat-effective">—</span>
+                      </div>
+                    </div>
+                    <div class="space-y-2 font-mono text-[12px]">
+                      <div class="flex justify-between p-2.5 bg-navy-50 rounded border border-navy-200/60">
+                        <span class="text-navy-600">Selection Provenance:</span>
+                        <span class="font-bold text-navy-700" id="strat-provenance">—</span>
+                      </div>
+                      <div class="flex justify-between p-2.5 bg-navy-50 rounded border border-navy-200/60">
+                        <span class="text-navy-600">Fallback Triggered:</span>
+                        <span class="font-bold text-emerald-600" id="strat-fallback">No</span>
+                      </div>
+                      <div class="flex justify-between p-2.5 bg-navy-50 rounded border border-navy-200/60">
+                        <span class="text-navy-600">Model Identifier:</span>
+                        <span class="font-bold text-navy-900" id="strat-model">production_v0</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ACCORDION 3: MOO DECISION (PARETO CANDIDATES TABLE) -->
+            <div class="bg-white rounded-lg shadow-xs border border-navy-200 overflow-hidden card-hover">
+              <button class="w-full p-3.5 bg-navy-100/70 hover:bg-navy-100 transition-colors flex items-center justify-between text-left cursor-pointer accordion-header-hover" onclick="toggleSectionAccordion('report-sec-3', this)">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-7 h-7 rounded bg-navy-900 text-white flex items-center justify-center font-bold font-mono text-[12px] shrink-0">
+                    03
+                  </div>
+                  <div>
+                    <h3 class="text-[14px] font-bold text-navy-900 font-sans">MOO DECISION</h3>
+                    <p class="font-mono text-[11px] text-navy-500 truncate" id="accordion-moo-subtitle">Multi-Objective Optimization Pareto Evaluation</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="font-mono text-[10.5px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold border border-emerald-300" id="accordion-moo-badge">Pareto Evaluated</span>
+                  <span class="material-symbols-outlined text-navy-500 transition-transform duration-200">expand_more</span>
+                </div>
+              </button>
+              <div class="card-body-expandable max-h-0 opacity-0 overflow-hidden transition-all bg-white" id="report-sec-3">
+                <div class="p-4 custom-scroll overflow-y-auto max-h-60 pr-1 border-t border-navy-200">
+                  <table class="w-full font-mono text-[11.5px] text-left border-collapse" id="moo-candidates-table">
+                    <thead>
+                      <tr class="border-b border-navy-200 text-navy-500 bg-navy-50">
+                        <th class="p-2">Candidate Strategy</th>
+                        <th class="p-2">Rank</th>
+                        <th class="p-2">Pareto Status</th>
+                        <th class="p-2">Execution Time</th>
+                        <th class="p-2">Code Size</th>
+                        <th class="p-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-navy-200/60" id="moo-candidates-tbody">
+                      <tr>
+                        <td colspan="6" class="p-3 text-center text-navy-400">Run AI Optimized to generate Pareto frontier candidate analysis.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- ACCORDION 4: SECURITY & FORMAL VERIFICATION -->
+            <div class="bg-white rounded-lg shadow-xs border border-navy-200 overflow-hidden card-hover">
+              <button class="w-full p-3.5 bg-navy-100/70 hover:bg-navy-100 transition-colors flex items-center justify-between text-left cursor-pointer accordion-header-hover" onclick="toggleSectionAccordion('report-sec-4', this)">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-7 h-7 rounded bg-navy-900 text-white flex items-center justify-center font-bold font-mono text-[12px] shrink-0">
+                    04
+                  </div>
+                  <div>
+                    <h3 class="text-[14px] font-bold text-navy-900 font-sans">SECURITY & FORMAL VERIFICATION</h3>
+                    <p class="font-mono text-[11px] text-navy-500 truncate" id="accordion-sec-subtitle">OptimizationSecurityGate & Boundary Controls</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="font-mono text-[10.5px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold border border-emerald-300" id="accordion-sec-badge">Safety Gate Active</span>
+                  <span class="material-symbols-outlined text-navy-500 transition-transform duration-200">expand_more</span>
+                </div>
+              </button>
+              <div class="card-body-expandable max-h-0 opacity-0 overflow-hidden transition-all bg-white" id="report-sec-4">
+                <div class="p-4 custom-scroll overflow-y-auto max-h-60 pr-1 flex flex-col gap-3 border-t border-navy-200 font-mono text-[11.5px]">
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div class="p-3 rounded bg-navy-50 border border-navy-200/60">
+                      <span class="text-accent font-bold">Gate 1: AST-Level Source Scan</span>
+                      <p class="text-navy-600 mt-1" id="sec-gate-1">Static verification of buffer indices and assertions.</p>
+                    </div>
+                    <div class="p-3 rounded bg-navy-50 border border-navy-200/60">
+                      <span class="text-accent font-bold">Gate 2: Undefined Behavior & Memory</span>
+                      <p class="text-navy-600 mt-1" id="sec-gate-2">Checks for pointer overflow and memory boundary preservation.</p>
+                    </div>
+                    <div class="p-3 rounded bg-navy-50 border border-navy-200/60">
+                      <span class="text-accent font-bold">Gate 3: Security Gate Authorization</span>
+                      <p class="text-navy-600 mt-1" id="sec-gate-3">Enforces safe strategy substitutions if risk detected.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ACCORDION 5: PERFORMANCE BENCHMARK AUDIT -->
+            <div class="bg-white rounded-lg shadow-xs border border-navy-200 overflow-hidden card-hover">
+              <button class="w-full p-3.5 bg-navy-100/70 hover:bg-navy-100 transition-colors flex items-center justify-between text-left cursor-pointer accordion-header-hover" onclick="toggleSectionAccordion('report-sec-5', this)">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-7 h-7 rounded bg-navy-900 text-white flex items-center justify-center font-bold font-mono text-[12px] shrink-0">
+                    05
+                  </div>
+                  <div>
+                    <h3 class="text-[14px] font-bold text-navy-900 font-sans">PERFORMANCE BENCHMARK AUDIT</h3>
+                    <p class="font-mono text-[11px] text-navy-500 truncate" id="accordion-perf-subtitle">Empirical Execution Time & Regression Analysis</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="font-mono text-[10.5px] px-2 py-0.5 rounded bg-blue-100 text-accent font-semibold border border-blue-200" id="accordion-perf-badge">Audited</span>
+                  <span class="material-symbols-outlined text-navy-500 transition-transform duration-200">expand_more</span>
+                </div>
+              </button>
+              <div class="card-body-expandable max-h-0 opacity-0 overflow-hidden transition-all bg-white" id="report-sec-5">
+                <div class="p-4 custom-scroll overflow-y-auto max-h-60 pr-1 flex flex-col gap-3 border-t border-navy-200 font-mono text-[11.5px]">
+                  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                    <div class="p-3 rounded bg-navy-50 border border-navy-200/60">
+                      <span class="text-[10.5px] text-navy-500 block">Baseline Time</span>
+                      <span class="text-[16px] font-bold text-navy-900 block mt-0.5" id="audit-base-time">—</span>
+                    </div>
+                    <div class="p-3 rounded bg-navy-50 border border-navy-200/60">
+                      <span class="text-[10.5px] text-navy-500 block">Optimized Time</span>
+                      <span class="text-[16px] font-bold text-accent block mt-0.5" id="audit-opt-time">—</span>
+                    </div>
+                    <div class="p-3 rounded bg-navy-50 border border-navy-200/60">
+                      <span class="text-[10.5px] text-navy-500 block">Speedup Ratio</span>
+                      <span class="text-[16px] font-bold text-emerald-600 block mt-0.5" id="audit-speedup">—</span>
+                    </div>
+                    <div class="p-3 rounded bg-navy-50 border border-navy-200/60">
+                      <span class="text-[10.5px] text-navy-500 block">Regression Status</span>
+                      <span class="text-[16px] font-bold text-navy-800 block mt-0.5" id="audit-regression">—</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ACCORDION 6: EXPLAINABLE AI (XAI) REASONING -->
+            <div class="bg-white rounded-lg shadow-xs border border-navy-200 overflow-hidden card-hover">
+              <button class="w-full p-3.5 bg-navy-100/70 hover:bg-navy-100 transition-colors flex items-center justify-between text-left cursor-pointer accordion-header-hover" onclick="toggleSectionAccordion('report-sec-6', this)">
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-7 h-7 rounded bg-navy-900 text-white flex items-center justify-center font-bold font-mono text-[12px] shrink-0">
+                    06
+                  </div>
+                  <div>
+                    <h3 class="text-[14px] font-bold text-navy-900 font-sans">EXPLAINABLE AI (XAI) REASONING</h3>
+                    <p class="font-mono text-[11px] text-navy-500 truncate" id="accordion-xai-subtitle">DecisionTrace & Feature Attribution Rationale</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="font-mono text-[10.5px] px-2 py-0.5 rounded bg-navy-100 text-navy-700 font-semibold border border-navy-200" id="accordion-xai-badge">DecisionTrace</span>
+                  <span class="material-symbols-outlined text-navy-500 transition-transform duration-200">expand_more</span>
+                </div>
+              </button>
+              <div class="card-body-expandable max-h-0 opacity-0 overflow-hidden transition-all bg-white" id="report-sec-6">
+                <div class="p-4 custom-scroll overflow-y-auto max-h-60 pr-1 flex flex-col gap-2.5 border-t border-navy-200 text-[12.5px]">
+                  <ul class="space-y-2.5 text-navy-600" id="xai-reasons-list">
+                    <li class="flex items-start gap-2.5">
+                      <span class="material-symbols-outlined text-accent text-[17px] shrink-0 mt-0.5">check_circle</span>
+                      <span id="xai-main-reason">Run an optimization to view empirical XAI attribution rationale.</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================== -->
+      <!-- TAB 3: OPTIMIZED CODE (SIDE-BY-SIDE BUFFER WITH COPY / SAVE)   -->
+      <!-- ============================================================== -->
+      <section class="tab-content py-4" id="tab-optimized-code">
+        <div class="flex flex-col w-full gap-5 pb-8">
+
+          <!-- Banner with Copy & Save Actions -->
+          <div class="bg-white p-5 rounded-lg shadow-xs border border-navy-200 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-1.5 text-accent mb-1 font-mono">
+                <span class="material-symbols-outlined text-[18px]">difference</span>
+                <span class="text-[11px] font-bold uppercase tracking-wider">Side-by-Side Dual Buffer</span>
+              </div>
+              <h2 class="text-[18px] font-bold text-navy-900 font-sans tracking-tight">Original Source vs. Synthesized Transformed IR / Code</h2>
+              <p class="text-[13px] text-navy-600 mt-0.5">
+                Direct diff comparison. Transformed LLVM IR and compiler optimization passes generated by TOACD.
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="px-3 py-1.5 rounded bg-navy-100 hover:bg-navy-200 text-navy-800 text-[12.5px] font-semibold transition-all shadow-xs active:scale-[0.98] flex items-center gap-1.5 border border-navy-200 font-sans cursor-pointer btn-hover" onclick="copyOptimizedCode(this)">
+                <span class="material-symbols-outlined text-[16px]">content_copy</span>
+                <span id="copy-btn-text">Copy Synthesized Code</span>
+              </button>
+              <button class="px-3 py-1.5 rounded bg-accent hover:bg-accent-hover text-white text-[12.5px] font-semibold transition-all shadow-xs active:scale-[0.98] flex items-center gap-1.5 font-sans cursor-pointer btn-hover" onclick="saveOptimizedCode(this)">
+                <span class="material-symbols-outlined text-[16px]">save</span>
+                <span>Save to Disk (.ll)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Dual Editor Split Grid (Scrollable Independent Panes) -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+
+            <!-- LEFT BUFFER: ORIGINAL SOURCE -->
+            <div class="flex flex-col bg-white rounded-lg shadow-xs border border-navy-200 overflow-hidden">
+              <div class="bg-navy-100/90 px-4 py-2 flex items-center justify-between border-b border-navy-200">
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-navy-400"></span>
+                  <span class="text-[12px] font-bold text-navy-900 font-mono">Original: C Source</span>
+                </div>
+                <span class="font-mono text-[10.5px] px-2 py-0.5 rounded bg-white text-navy-600 border border-navy-200">Baseline Input</span>
+              </div>
+              <pre class="p-3.5 overflow-x-auto max-h-[520px] custom-scroll bg-white font-mono text-[12px] leading-relaxed text-navy-900 selection:bg-navy-200" id="opt-left-code">// Original C source code will be reflected here</pre>
+            </div>
+
+            <!-- RIGHT BUFFER: SYNTHESIZED OPTIMIZED IR / CODE -->
+            <div class="flex flex-col bg-white rounded-lg shadow-xs border-2 border-accent/40 overflow-hidden">
+              <div class="bg-navy-100/90 px-4 py-2 flex items-center justify-between border-b border-navy-200">
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-accent"></span>
+                  <span class="text-[12px] font-bold text-accent font-mono" id="opt-right-header">Synthesized: Optimized LLVM IR</span>
+                </div>
+                <span class="font-mono text-[10.5px] px-2 py-0.5 rounded bg-blue-100 text-accent font-semibold border border-blue-200" id="opt-pass-badge">Transformed</span>
+              </div>
+              <pre class="p-3.5 overflow-x-auto max-h-[520px] custom-scroll bg-white font-mono text-[12px] leading-relaxed text-navy-900 selection:bg-blue-100" id="opt-right-code">; Awaiting optimization run...</pre>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ACCESSIBLE TOAST NOTIFICATION CONTAINER (Phase 1A) -->
+  <div id="toast-container"
+       class="fixed bottom-4 right-4 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none p-3 sm:p-0"
+       role="region"
+       aria-label="Notifications"
+       aria-live="polite">
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
