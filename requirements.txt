@@ -4,3 +4,4 @@ pandas
 ttkbootstrap
 matplotlib
 tornado
+pytest
