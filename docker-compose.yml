@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  toacd-github:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: toacd-github-production
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - TOACD_ASSISTANT_ENABLED=true
+      - TOACD_LLM_PROVIDER=gemini
+      - TOACD_EXTERNAL_AI_ALLOWED=true
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    restart: unless-stopped

@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: toacd-core-github
+    env: docker
+    dockerfilePath: Dockerfile
+    plan: standard
+    region: oregon
+    autoDeploy: true
+    branch: main
+    healthCheckPath: /api/status
+    envVars:
+      - key: TOACD_ASSISTANT_ENABLED
+        value: "true"
+      - key: TOACD_LLM_PROVIDER
+        value: "gemini"
+      - key: TOACD_EXTERNAL_AI_ALLOWED
+        value: "true"
+      - key: GEMINI_API_KEY
+        sync: false
