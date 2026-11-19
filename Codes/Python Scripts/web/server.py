@@ -47,8 +47,108 @@ logger = logging.getLogger("toacd.web")
 _executor = ThreadPoolExecutor(max_workers=4)
 
 
+_FACULTY_PASSCODE = os.environ.get("TOACD_APP_PASSWORD", "").strip()
+_COOKIE_NAME = "toacd_faculty_auth"
+
+def render_faculty_login() -> str:
+    return """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TOACD — Faculty Access Verification</title>
+<style>
+  body { margin: 0; padding: 0; background: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 32px; width: 100%; max-width: 400px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
+  .badge { display: inline-block; background: #0369a1; color: #e0f2fe; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-bottom: 12px; }
+  .logo { font-size: 22px; font-weight: 800; color: #38bdf8; margin-bottom: 6px; }
+  .subtitle { font-size: 13px; color: #94a3b8; margin-bottom: 24px; line-height: 1.4; }
+  .label { font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 6px; display: block; }
+  .input { width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid #475569; border-radius: 6px; padding: 10px 12px; color: #f8fafc; font-size: 14px; margin-bottom: 16px; outline: none; }
+  .input:focus { border-color: #38bdf8; }
+  .btn { width: 100%; background: #0284c7; color: white; border: none; border-radius: 6px; padding: 10px; font-weight: 600; font-size: 14px; cursor: pointer; }
+  .btn:hover { background: #0369a1; }
+  .error { color: #f87171; font-size: 12px; margin-top: 12px; display: none; }
+</style>
+</head>
+<body>
+<div class="card">
+  <span class="badge">FACULTY DEMONSTRATION GATE</span>
+  <div class="logo">TOACD Compiler Platform</div>
+  <div class="subtitle">Protected Academic Demonstration Environment. Please enter your faculty verification passcode.</div>
+  <form id="loginForm" onsubmit="handleLogin(event)">
+    <label class="label" for="passcode">Faculty Passcode</label>
+    <input class="input" type="password" id="passcode" placeholder="Enter session passcode" required autofocus>
+    <button class="btn" type="submit">Verify & Access Platform</button>
+    <div class="error" id="errMsg">Invalid passcode. Please verify with your session credentials.</div>
+  </form>
+</div>
+<script>
+async function handleLogin(e) {
+  e.preventDefault();
+  const pass = document.getElementById('passcode').value;
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({passcode: pass})
+  });
+  if (res.ok) {
+    window.location.reload();
+  } else {
+    document.getElementById('errMsg').style.display = 'block';
+  }
+}
+</script>
+</body>
+</html>"""
+
+def is_request_authenticated(handler: tornado.web.RequestHandler) -> bool:
+    if not _FACULTY_PASSCODE:
+        return True
+    try:
+        cookie_val = handler.get_secure_cookie(_COOKIE_NAME)
+        if cookie_val and cookie_val.decode("utf-8") == "authenticated":
+            return True
+    except Exception:
+        pass
+    auth_header = handler.request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer ") and auth_header[7:].strip() == _FACULTY_PASSCODE:
+        return True
+    return False
+
+class LoginHandler(tornado.web.RequestHandler):
+    def post(self):
+        try:
+            body = json.loads(self.request.body.decode("utf-8")) if self.request.body else {}
+        except Exception:
+            body = {}
+        passcode = (body.get("passcode") or self.get_argument("passcode", "")).strip()
+        if _FACULTY_PASSCODE and passcode == _FACULTY_PASSCODE:
+            self.set_secure_cookie(_COOKIE_NAME, "authenticated", httponly=True, samesite="Strict")
+            self.set_header("Content-Type", "application/json")
+            self.write(json.dumps({"success": True, "message": "Authenticated"}))
+        elif not _FACULTY_PASSCODE:
+            self.write(json.dumps({"success": True, "message": "Authentication disabled"}))
+        else:
+            self.set_status(401)
+            self.set_header("Content-Type", "application/json")
+            self.write(json.dumps({"success": False, "error": "Invalid passcode"}))
+
+class LogoutHandler(tornado.web.RequestHandler):
+    def post(self):
+        self.clear_cookie(_COOKIE_NAME)
+        self.set_header("Content-Type", "application/json")
+        self.write(json.dumps({"success": True, "message": "Logged out"}))
+
 class BaseHandler(tornado.web.RequestHandler):
     """Base handler setting JSON headers and CORS."""
+
+    def prepare(self) -> None:
+        if _FACULTY_PASSCODE and not is_request_authenticated(self):
+            if self.request.path not in ("/api/status", "/api/auth/login", "/api/auth/logout"):
+                self.set_status(401)
+                self.set_header("Content-Type", "application/json; charset=utf-8")
+                self.finish(json.dumps({"error": "Unauthorized. Faculty verification required.", "authenticated": False}))
 
     def set_default_headers(self) -> None:
         self.set_header("Access-Control-Allow-Origin", "*")
@@ -69,6 +169,10 @@ class IndexHandler(tornado.web.RequestHandler):
     """Serves the main application single-page dashboard."""
 
     def get(self) -> None:
+        if _FACULTY_PASSCODE and not is_request_authenticated(self):
+            self.set_header("Content-Type", "text/html; charset=utf-8")
+            self.write(render_faculty_login())
+            return
         index_path = os.path.join(_current_dir, "static", "index.html")
         if os.path.isfile(index_path):
             with open(index_path, "r", encoding="utf-8") as f:
@@ -266,6 +370,8 @@ def make_app() -> tornado.web.Application:
 
     handlers = [
         (r"/", IndexHandler),
+        (r"/api/auth/login", LoginHandler),
+        (r"/api/auth/logout", LogoutHandler),
         (r"/api/status", StatusHandler),
         (r"/api/samples", SamplesHandler),
         (r"/api/sample/([^/]+)", SampleDetailHandler),
@@ -279,6 +385,7 @@ def make_app() -> tornado.web.Application:
         handlers,
         debug=False,
         autoreload=False,
+        cookie_secret=os.environ.get("TOACD_COOKIE_SECRET", "toacd-production-auth-cookie-secret-2026"),
     )
 
 
