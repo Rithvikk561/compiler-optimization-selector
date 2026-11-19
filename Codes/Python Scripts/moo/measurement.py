@@ -319,12 +319,26 @@ def _run_once(
     """
     cmd = [exe_path] + (args or [])
     t0 = time.perf_counter_ns()
+    preexec = None
+    if sys.platform != "win32":
+        def _sandbox_limits():
+            try:
+                import resource
+                resource.setrlimit(resource.RLIMIT_CPU, (5, 5))
+                resource.setrlimit(resource.RLIMIT_AS, (268435456, 268435456))
+                resource.setrlimit(resource.RLIMIT_FSIZE, (10485760, 10485760))
+                resource.setrlimit(resource.RLIMIT_NPROC, (1, 1))
+            except Exception:
+                pass
+        preexec = _sandbox_limits
+
     try:
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
             timeout=timeout_s,
+            preexec_fn=preexec,
         )
         elapsed_ns = time.perf_counter_ns() - t0
         return ExecutionRecord(
